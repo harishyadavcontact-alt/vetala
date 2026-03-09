@@ -116,3 +116,41 @@ export const scoreExplanationSchema = z.object({
     notes: z.union([z.string(), z.literal("null")]),
   }),
 });
+
+export const createEvidenceSchema = z.object({
+  source_type: z.enum(["registry", "filing", "watchdog_db", "news", "report", "court", "webpage", "other"]),
+  publisher: z.string().min(1),
+  title: z.string().min(1),
+  url: z.string().url(),
+  accessed_at: z.string().datetime(),
+  trust_tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  content_hash: z.string().min(1),
+  raw_storage_path: z.string().min(1),
+  extracted_text_path: z.string().min(1),
+  license_notes: z.string().nullable().optional(),
+});
+
+export const createExtractionSchema = z.object({
+  evidence_id: z.string().uuid(),
+  extractor_version: z.string().min(1),
+  model_name: z.string().nullable().optional(),
+  schema_version: z.string().min(1),
+  json_output: extractionOutputSchema,
+  confidence: z.number().min(0).max(1),
+});
+
+export const recomputeSignalsSchema = z.object({
+  subject_type: z.enum(["person", "event", "org"]),
+  subject_id: z.string().uuid(),
+});
+
+export const createUserActionSchema = z.object({
+  action_type: z.enum(["viewed_evidence", "captured", "shared", "flagged"]),
+  entity_type: z.enum(["evidence", "discovery", "capture"]),
+  entity_id: z.string().uuid(),
+});
+
+export const createCaptureSchema = z.object({
+  discovery_id: z.string().uuid(),
+  note: z.string().nullable().optional(),
+});

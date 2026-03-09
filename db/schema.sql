@@ -36,7 +36,8 @@ CREATE TABLE evidence (
   raw_storage_path TEXT NOT NULL,
   extracted_text_path TEXT NOT NULL,
   trust_tier INT NOT NULL CHECK (trust_tier BETWEEN 1 AND 4),
-  license_notes TEXT
+  license_notes TEXT,
+  UNIQUE (content_hash)
 );
 
 CREATE TABLE roles (
@@ -126,13 +127,15 @@ CREATE TABLE discoveries (
   confidence NUMERIC NOT NULL CHECK (confidence BETWEEN 0 AND 1),
   detected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   explanation_json JSONB NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('suggested','captured','dismissed','flagged_for_review'))
+  status TEXT NOT NULL CHECK (status IN ('suggested','captured','dismissed','flagged_for_review')),
+  detector_version TEXT NOT NULL DEFAULT 'bob_rubin_trade_v1'
 );
 
 CREATE TABLE discovery_evidence (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   discovery_id UUID NOT NULL REFERENCES discoveries(id) ON DELETE CASCADE,
-  evidence_id UUID NOT NULL REFERENCES evidence(id) ON DELETE CASCADE
+  evidence_id UUID NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
+  UNIQUE (discovery_id, evidence_id)
 );
 
 CREATE TABLE users (

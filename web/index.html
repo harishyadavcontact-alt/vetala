@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vetala</title>
+    <link rel="stylesheet" href="/app/app.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail">
+        <div>
+          <p class="eyebrow">Vetala</p>
+          <h1>Evidence-first research workstation</h1>
+          <p class="lede">Import evidence, inspect extraction quality, review discoveries, and capture only after the source has been read.</p>
+        </div>
+        <div class="panel">
+          <h2>Quick ingest</h2>
+          <form id="ingest-form">
+            <input name="title" placeholder="Evidence title" required />
+            <input name="publisher" placeholder="Publisher" required />
+            <input name="url" placeholder="https://source.example" required />
+            <select name="source_type">
+              <option value="news">News</option>
+              <option value="filing">Filing</option>
+              <option value="watchdog_db">Watchdog DB</option>
+              <option value="report">Report</option>
+              <option value="webpage">Webpage</option>
+              <option value="other">Other</option>
+            </select>
+            <select name="trust_tier">
+              <option value="1">Trust tier 1</option>
+              <option value="2">Trust tier 2</option>
+              <option value="3">Trust tier 3</option>
+              <option value="4">Trust tier 4</option>
+            </select>
+            <button type="submit">Add evidence</button>
+          </form>
+          <p class="small" id="ingest-status"></p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="board">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Evidence Inbox</p>
+              <h2>Newest sources</h2>
+            </div>
+            <button id="refresh-evidence" class="secondary">Refresh</button>
+          </div>
+          <div id="evidence-list" class="list"></div>
+        </section>
+
+        <section class="board">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Discovery Queue</p>
+              <h2>Ranked by severity</h2>
+            </div>
+          </div>
+          <div class="filters">
+            <label>
+              Min confidence
+              <input type="range" id="confidence-filter" min="0" max="1" step="0.05" value="0.5" />
+            </label>
+            <span id="confidence-value">0.50</span>
+          </div>
+          <div id="discovery-list" class="list"></div>
+        </section>
+
+        <section class="detail-grid">
+          <div class="panel tall">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Evidence Reader</p>
+                <h2>Source inspection</h2>
+              </div>
+            </div>
+            <div id="evidence-detail" class="detail empty">Select evidence from the inbox.</div>
+          </div>
+
+          <div class="panel tall">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Entity Profile</p>
+                <h2>Scores, discoveries, and timeline</h2>
+              </div>
+            </div>
+            <div id="entity-profile" class="detail empty">Select a discovery to inspect the subject.</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Capture Workspace</p>
+              <h2>Dossier building</h2>
+            </div>
+          </div>
+          <div id="capture-workspace" class="detail empty">Choose a discovery after reviewing evidence.</div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/app/app.js"></script>
+  </body>
+</html>
