@@ -38,6 +38,8 @@
   - GitHub CI, security, and repair workflows
 - semantic seed subjects, institutions, and events aligned to the fragility thesis
 - discovery subject labels and intervention timelines in the UI
+- radar tracking for discoveries using flagged user actions
+- subject and pattern leaderboards derived from current discovery severity
 
 ## Changed
 

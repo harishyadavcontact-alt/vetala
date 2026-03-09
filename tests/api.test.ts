@@ -105,4 +105,26 @@ describe("workflow api", () => {
     });
     expect(Array.isArray(response.body.recent_evidence)).toBe(true);
   });
+
+  it("tracks discoveries on the radar and returns leaderboards", async () => {
+    const list = await request(app).get("/api/v1/discoveries?status=suggested");
+    const discovery = list.body[0];
+
+    const flag = await request(app).post("/api/v1/user-actions").send({
+      action_type: "flagged",
+      entity_type: "discovery",
+      entity_id: discovery.id,
+    });
+    expect(flag.status).toBe(201);
+
+    const watchlist = await request(app).get("/api/v1/watchlist");
+    expect(watchlist.status).toBe(200);
+    expect(watchlist.body.some((item: { id: string }) => item.id === discovery.id)).toBe(true);
+
+    const leaderboards = await request(app).get("/api/v1/leaderboards");
+    expect(leaderboards.status).toBe(200);
+    expect(Array.isArray(leaderboards.body.subjects)).toBe(true);
+    expect(Array.isArray(leaderboards.body.patterns)).toBe(true);
+    expect(leaderboards.body.subjects.length).toBeGreaterThan(0);
+  });
 });

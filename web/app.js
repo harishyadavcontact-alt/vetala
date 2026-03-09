@@ -1,6 +1,8 @@
 const state = {
   evidence: [],
   discoveries: [],
+  watchlist: [],
+  leaderboards: { subjects: [], patterns: [] },
   selectedEvidenceId: null,
   selectedDiscoveryId: null,
 };
@@ -8,6 +10,8 @@ const state = {
 const nodes = {
   evidenceList: document.querySelector("#evidence-list"),
   discoveryList: document.querySelector("#discovery-list"),
+  watchlist: document.querySelector("#watchlist"),
+  leaderboards: document.querySelector("#leaderboards"),
   evidenceDetail: document.querySelector("#evidence-detail"),
   entityProfile: document.querySelector("#entity-profile"),
   captureWorkspace: document.querySelector("#capture-workspace"),
@@ -79,6 +83,43 @@ function renderDiscoveryList() {
       </article>`,
     )
     .join("");
+}
+
+function renderWatchlist() {
+  nodes.watchlist.innerHTML = state.watchlist.length === 0
+    ? '<p class="empty">No tracked discoveries yet.</p>'
+    : state.watchlist
+        .map(
+          (item) => `
+          <article class="card" data-discovery-id="${item.id}">
+            <div class="card-row">
+              <strong>${item.pattern_label}</strong>
+              ${tag(`sev ${item.severity_score}`)}
+            </div>
+            <p class="meta">${item.subject_label ?? item.subject_id}</p>
+          </article>`,
+        )
+        .join("");
+}
+
+function renderLeaderboards() {
+  const subjectRows = state.leaderboards.subjects
+    .map((item) => `<li>${item.label} | score ${item.score} | ${item.count} hits</li>`)
+    .join("");
+  const patternRows = state.leaderboards.patterns
+    .map((item) => `<li>${item.label} | score ${item.score} | ${item.count} hits</li>`)
+    .join("");
+
+  nodes.leaderboards.innerHTML = `
+    <div>
+      <p class="eyebrow">Top fragilistas</p>
+      <ul>${subjectRows || "<li>No leaderboard data yet.</li>"}</ul>
+    </div>
+    <div>
+      <p class="eyebrow">Top patterns</p>
+      <ul>${patternRows || "<li>No leaderboard data yet.</li>"}</ul>
+    </div>
+  `;
 }
 
 async function loadEvidenceDetail(id) {
@@ -201,6 +242,7 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
       <textarea name="note" placeholder="Capture note"></textarea>
       <div class="inline-actions">
         <button type="submit">Capture into dossier</button>
+        <button type="button" id="track-discovery" class="secondary">Track on radar</button>
         <button type="button" id="share-capture" class="secondary">Share latest capture</button>
       </div>
       <p class="small" id="capture-status">${statusMessage}</p>
@@ -238,18 +280,38 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
     const shared = await api(`/api/v1/captures/${latest.id}/share`, { method: "POST" });
     statusNode.textContent = `Share token: ${shared.share_token}`;
   });
+
+  document.querySelector("#track-discovery")?.addEventListener("click", async () => {
+    const statusNode = document.querySelector("#capture-status");
+    await api("/api/v1/user-actions", {
+      method: "POST",
+      body: JSON.stringify({
+        action_type: "flagged",
+        entity_type: "discovery",
+        entity_id: id,
+      }),
+    });
+    await loadAll();
+    statusNode.textContent = "Added to radar.";
+  });
 }
 
 async function loadAll() {
   nodes.confidenceValue.textContent = Number(nodes.confidenceFilter.value).toFixed(2);
-  const [evidence, discoveries] = await Promise.all([
+  const [evidence, discoveries, watchlist, leaderboards] = await Promise.all([
     api("/api/v1/evidence"),
     api(`/api/v1/discoveries?min_confidence=${nodes.confidenceFilter.value}`),
+    api("/api/v1/watchlist"),
+    api("/api/v1/leaderboards"),
   ]);
   state.evidence = evidence;
   state.discoveries = discoveries;
+  state.watchlist = watchlist;
+  state.leaderboards = leaderboards;
   renderEvidenceList();
   renderDiscoveryList();
+  renderWatchlist();
+  renderLeaderboards();
 }
 
 nodes.evidenceList.addEventListener("click", async (event) => {
@@ -261,6 +323,14 @@ nodes.evidenceList.addEventListener("click", async (event) => {
 });
 
 nodes.discoveryList.addEventListener("click", async (event) => {
+  const card = event.target.closest("[data-discovery-id]");
+  if (!card) {
+    return;
+  }
+  await loadCaptureWorkspace(card.dataset.discoveryId);
+});
+
+nodes.watchlist.addEventListener("click", async (event) => {
   const card = event.target.closest("[data-discovery-id]");
   if (!card) {
     return;

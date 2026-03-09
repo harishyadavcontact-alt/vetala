@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { buildDiscovery, buildEvidenceHeadlines, buildFragilitySummary, buildScores, rankDiscovery } from "./domain.js";
-import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
+import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
   CreateEvidenceInput,
@@ -265,6 +265,64 @@ export class PostgresRepository implements Repository {
     );
     await this.createUserAction({ user_id: userId, action_type: "shared", entity_type: "capture", entity_id: captureId });
     return shared.rows[0];
+  }
+
+  async listWatchlist(userId: string) {
+    const watchlistRows = await this.pool.query<{ entity_id: string }>(
+      `SELECT entity_id::text
+       FROM user_actions
+       WHERE user_id = $1 AND action_type = 'flagged' AND entity_type = 'discovery'
+       ORDER BY created_at DESC`,
+      [userId],
+    );
+    const ids = watchlistRows.rows.map((row) => row.entity_id);
+    if (ids.length === 0) {
+      return [];
+    }
+    const discoveries = await this.pool.query<Discovery>(
+      `SELECT id, subject_type, subject_id, pattern_type, pattern_label, severity_score, confidence, detected_at::text, explanation_json, status,
+              ARRAY(SELECT evidence_id FROM discovery_evidence WHERE discovery_id = discoveries.id) AS evidence_ids,
+              COALESCE(detector_version, 'bob_rubin_trade_v1') AS detector_version
+       FROM discoveries WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
+    return this.rankDiscoveries(discoveries.rows.map((row) => this.normalizeDiscovery(row)), userId);
+  }
+
+  async getLeaderboards(userId: string): Promise<{ subjects: LeaderboardEntry[]; patterns: LeaderboardEntry[] }> {
+    const discoveries = await this.listDiscoveries(userId);
+    const subjectMap = new Map<string, LeaderboardEntry>();
+    const patternMap = new Map<string, LeaderboardEntry>();
+
+    for (const discovery of discoveries) {
+      const subjectKey = `${discovery.subject_type}:${discovery.subject_id}`;
+      const subjectEntry = subjectMap.get(subjectKey) ?? {
+        id: subjectKey,
+        label: discovery.subject_label ?? subjectKey,
+        score: 0,
+        count: 0,
+        type: "subject" as const,
+      };
+      subjectEntry.score += discovery.severity_score;
+      subjectEntry.count += 1;
+      subjectMap.set(subjectKey, subjectEntry);
+
+      const patternEntry = patternMap.get(discovery.pattern_type) ?? {
+        id: discovery.pattern_type,
+        label: discovery.pattern_label,
+        score: 0,
+        count: 0,
+        type: "pattern" as const,
+      };
+      patternEntry.score += discovery.severity_score;
+      patternEntry.count += 1;
+      patternMap.set(discovery.pattern_type, patternEntry);
+    }
+
+    return {
+      subjects: Array.from(subjectMap.values()).sort((a, b) => b.score - a.score || b.count - a.count).slice(0, 5),
+      patterns: Array.from(patternMap.values()).sort((a, b) => b.score - a.score || b.count - a.count).slice(0, 5),
+    };
   }
 
   async getEntityProfile(subjectType: SubjectType, id: string, userId: string): Promise<EntityProfile | null> {

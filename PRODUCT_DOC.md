@@ -49,6 +49,10 @@ Primary surfaces:
 - Discovery Queue
   - lists ranked discoveries with severity, confidence, subject label, evidence count, best trust tier, and reviewed evidence count
   - supports a min-confidence slider filter
+- Radar
+  - lists user-tracked discoveries flagged through the UI
+- Leaderboards
+  - rank subjects and pattern labels by cumulative discovery severity in the current dataset
 - Evidence Reader
   - shows source metadata and the first extraction payload
   - exposes `Mark reviewed`
@@ -56,7 +60,7 @@ Primary surfaces:
   - shows subject identity, fragility summary metrics, top detector patterns, recent evidence, intervention timeline, and full score payloads
 - Capture Workspace
   - shows discovery details and explanation JSON
-  - allows capture and share after selection
+  - allows capture, radar tracking, and share after selection
 
 Interaction model:
 
@@ -127,6 +131,8 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - A user cannot capture a discovery unless at least one linked evidence item has been reviewed by that user.
 - A successful capture returns a persisted capture record with `verification_level: viewed_evidence`.
 - A user can request a share token for a capture.
+- A user can track a discovery on the radar.
+- The UI exposes leaderboard views for subjects and detector patterns.
 - Entity profile responses include subject info and score payloads.
 - Entity profiles expose `fragility_summary` and `recent_evidence`.
 - `npm run validate` passes for the non-DB path.

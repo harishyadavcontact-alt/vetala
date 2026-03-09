@@ -5,6 +5,7 @@ import type {
   Evidence,
   EvidenceDetail,
   Extraction,
+  LeaderboardEntry,
   RankedDiscovery,
   Score,
   SearchResults,
@@ -85,6 +86,8 @@ export interface Repository {
   captureDiscovery(userId: string, input: CaptureInput): Promise<Capture>;
   listCaptures(userId: string): Promise<Capture[]>;
   shareCapture(userId: string, captureId: string): Promise<Capture>;
+  listWatchlist(userId: string): Promise<RankedDiscovery[]>;
+  getLeaderboards(userId: string): Promise<{ subjects: LeaderboardEntry[]; patterns: LeaderboardEntry[] }>;
   getEntityProfile(subjectType: SubjectType, id: string, userId: string): Promise<EntityProfile | null>;
   recomputeSubject(subjectType: SubjectType, subjectId: string, userId: string): Promise<RecomputeResult>;
 }

@@ -208,7 +208,7 @@ All routes live under `/api/v1`.
 
 - `POST /user-actions`
   - body validated by `createUserActionSchema`
-  - current UI uses this for `viewed_evidence`
+  - current UI uses this for `viewed_evidence` and `flagged`
 
 ### Discoveries
 
@@ -242,6 +242,16 @@ All routes live under `/api/v1`.
 
 - `POST /captures/:id/share`
   - returns `Capture` with `share_token`
+
+### Radar And Leaderboards
+
+- `GET /watchlist`
+  - returns flagged discoveries for the current user
+
+- `GET /leaderboards`
+  - returns:
+    - `subjects: LeaderboardEntry[]`
+    - `patterns: LeaderboardEntry[]`
 
 ### Subject Profiles And Scores
 
@@ -339,6 +349,7 @@ Important implications:
 - user feedback is inline text, not toast/notification infrastructure
 - discovery cards now rely on `subject_label` when the repository provides it
 - entity profiles render `timeline` and `recent_evidence` directly from API payloads
+- watchlist and leaderboard panels refresh from server state inside the same page-local fetch loop
 
 ## State Management Implications
 

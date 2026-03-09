@@ -1,5 +1,5 @@
 import { buildEvidenceHeadlines, buildDiscovery, buildFragilitySummary, buildScores, createId, rankDiscovery } from "./domain.js";
-import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
+import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
   CreateEvidenceInput,
@@ -227,6 +227,58 @@ export class MemoryRepository implements Repository {
     }
 
     return capture;
+  }
+
+  async listWatchlist(userId: string) {
+    const watchedDiscoveryIds = new Set(
+      this.state.userActions
+        .filter((action) => action.user_id === userId && action.action_type === "flagged" && action.entity_type === "discovery")
+        .map((action) => action.entity_id),
+    );
+
+    return this.state.discoveries
+      .filter((discovery) => watchedDiscoveryIds.has(discovery.id))
+      .map((discovery) => ({
+        ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+        subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
+      }))
+      .sort((a, b) => b.severity_score - a.severity_score || b.confidence - a.confidence);
+  }
+
+  async getLeaderboards(userId: string): Promise<{ subjects: LeaderboardEntry[]; patterns: LeaderboardEntry[] }> {
+    const discoveries = await this.listDiscoveries(userId);
+    const subjectMap = new Map<string, LeaderboardEntry>();
+    const patternMap = new Map<string, LeaderboardEntry>();
+
+    for (const discovery of discoveries) {
+      const subjectKey = `${discovery.subject_type}:${discovery.subject_id}`;
+      const subjectEntry = subjectMap.get(subjectKey) ?? {
+        id: subjectKey,
+        label: discovery.subject_label ?? subjectKey,
+        score: 0,
+        count: 0,
+        type: "subject" as const,
+      };
+      subjectEntry.score += discovery.severity_score;
+      subjectEntry.count += 1;
+      subjectMap.set(subjectKey, subjectEntry);
+
+      const patternEntry = patternMap.get(discovery.pattern_type) ?? {
+        id: discovery.pattern_type,
+        label: discovery.pattern_label,
+        score: 0,
+        count: 0,
+        type: "pattern" as const,
+      };
+      patternEntry.score += discovery.severity_score;
+      patternEntry.count += 1;
+      patternMap.set(discovery.pattern_type, patternEntry);
+    }
+
+    return {
+      subjects: Array.from(subjectMap.values()).sort((a, b) => b.score - a.score || b.count - a.count).slice(0, 5),
+      patterns: Array.from(patternMap.values()).sort((a, b) => b.score - a.score || b.count - a.count).slice(0, 5),
+    };
   }
 
   async getEntityProfile(subjectType: SubjectType, id: string, userId: string): Promise<EntityProfile | null> {

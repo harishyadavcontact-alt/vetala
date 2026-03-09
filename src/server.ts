@@ -155,6 +155,16 @@ export function createApp(repository: Repository) {
     res.json(await repository.listCaptures(userId));
   }));
 
+  app.get("/api/v1/watchlist", asyncHandler(async (req, res) => {
+    const userId = await resolveUserId(req);
+    res.json(await repository.listWatchlist(userId));
+  }));
+
+  app.get("/api/v1/leaderboards", asyncHandler(async (req, res) => {
+    const userId = await resolveUserId(req);
+    res.json(await repository.getLeaderboards(userId));
+  }));
+
   app.post("/api/v1/captures/:id/share", asyncHandler(async (req, res) => {
     const userId = await resolveUserId(req);
     try {

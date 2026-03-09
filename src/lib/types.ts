@@ -165,6 +165,14 @@ export interface EvidenceHeadline {
   accessed_at: string;
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  label: string;
+  score: number;
+  count: number;
+  type: "subject" | "pattern";
+}
+
 export interface RankedDiscovery extends Discovery {
   evidence: Evidence[];
   summary: DiscoverySummary;
