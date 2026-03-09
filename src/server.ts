@@ -1,7 +1,7 @@
 import path from "node:path";
 import express from "express";
 import { fileURLToPath } from "node:url";
-import { createCaptureSchema, createEvidenceSchema, createExtractionSchema, createUserActionSchema, recomputeSignalsSchema, reviewExtractionSchema } from "./lib/schemas.js";
+import { createCaptureSchema, createEvidenceSchema, createExtractionSchema, createUserActionSchema, recomputeSignalsSchema, reviewExtractionSchema, saveReviewedThesisSchema } from "./lib/schemas.js";
 import { createRepository } from "./lib/data.js";
 import { asyncHandler, errorHandler, HttpError, requestLogger } from "./lib/http.js";
 import type { Repository } from "./lib/repository.js";
@@ -123,6 +123,27 @@ export function createApp(repository: Repository) {
       throw new HttpError(404, "Discovery not found");
     }
     res.json(discovery.explanation_json);
+  }));
+
+  app.post("/api/v1/discoveries/:id/reviewed-thesis", asyncHandler(async (req, res) => {
+    const userId = await resolveUserId(req);
+    const payload = saveReviewedThesisSchema.parse(req.body);
+    try {
+      const thesis = await repository.saveReviewedThesis(userId, {
+        discovery_id: req.params.id,
+        ...payload,
+      });
+      console.log(JSON.stringify({ type: "audit", event: "reviewed_thesis_saved", discovery_id: req.params.id, thesis_id: thesis.id }));
+      res.status(201).json(thesis);
+    } catch (error) {
+      if (error instanceof Error && error.message === "DISCOVERY_NOT_FOUND") {
+        throw new HttpError(404, "Discovery not found");
+      }
+      if (error instanceof Error && error.message === "INVALID_THESIS_SUPPORT") {
+        throw new HttpError(400, "Reviewed thesis support is invalid", "Supporting evidence and extractions must belong to the selected discovery.");
+      }
+      throw error;
+    }
   }));
 
   app.post("/api/v1/discoveries/:id/capture", asyncHandler(async (req, res) => {

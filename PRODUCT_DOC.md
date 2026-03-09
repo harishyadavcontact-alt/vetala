@@ -33,7 +33,7 @@ That distinction is the difference between gossip about elites and a usable frag
 - Add a source record with enough metadata to track provenance.
 - See whether a source has extraction data, duplicates, prior discovery links, and analyst review state.
 - Review each extraction as `pending`, `reviewed`, or `challenged`.
-- Review a discovery with ranked evidence, detector explanations, and cautious confidence framing.
+- Review a discovery with ranked evidence, detector explanations, cautious confidence framing, and an explicit analyst thesis.
 - Open an entity profile and inspect scores tied to that subject.
 - Capture a discovery into a dossier only after at least one linked evidence item has been reviewed.
 - Generate a share token for an existing capture.
@@ -62,7 +62,7 @@ Primary surfaces:
 - Entity Profile
   - shows subject identity, fragility summary metrics, top detector patterns, reviewed theses, detector hits, recent evidence, and intervention timeline
 - Capture Workspace
-  - shows discovery details, detector-hit versus reviewed-thesis framing, extraction review ratio, and explanation JSON
+  - shows discovery details, detector-hit versus reviewed-thesis framing, extraction review ratio, analyst thesis form, and explanation JSON
   - allows capture, radar tracking, and share after selection
 
 Interaction model:
@@ -99,7 +99,7 @@ Extraction states visible in UI:
 2. Discovery is listed with ranked evidence summary
 3. User opens the discovery in the queue
 4. User reviews at least one linked evidence item
-5. User may review supporting extractions to strengthen the thesis from detector hit to reviewed thesis
+5. User may save a reviewed thesis tied to the discovery, with supporting evidence IDs and extraction IDs
 6. User captures the discovery through `POST /api/v1/discoveries/:id/capture`
 7. User may generate a share token through `POST /api/v1/captures/:id/share`
 
@@ -141,10 +141,12 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - Evidence creation is idempotent by `content_hash`.
 - A user can view evidence detail and mark an evidence item reviewed.
 - A user can review an extraction through `POST /api/v1/extractions/:id/review`.
+- A user can save a reviewed thesis through `POST /api/v1/discoveries/:id/reviewed-thesis`.
 - Evidence detail returns all extractions with `review_status`, `review_note`, `reviewed_at`, and `reviewed_by`.
 - Discovery list responses include `summary.evidence_count`, `summary.best_trust_tier`, `summary.reviewed_evidence_count`, and `summary.source_diversity_score`.
 - Discovery list responses also include `summary.extraction_count`, `summary.reviewed_extraction_count`, `summary.challenged_extraction_count`, and `summary.extraction_review_ratio`.
 - Discovery responses expose whether the item is still a `detector_hit` or has become a `reviewed_thesis`.
+- Discovery responses include the current user's `reviewed_thesis` when one exists.
 - A user cannot capture a discovery unless at least one linked evidence item has been reviewed by that user.
 - A successful capture returns a persisted capture record with `verification_level: viewed_evidence`.
 - A user can request a share token for a capture.
@@ -158,7 +160,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 
 - There is no real auth flow. User resolution is `x-user-id` or first user in the repository.
 - The frontend is plain JavaScript with in-memory page state. There is no route-level state, undo, or offline behavior.
-- Entity profiles still synthesize the "why fragile" section from discovery summaries, not from a dedicated reviewed-thesis model.
+- Subject pages still use synthetic timeline data even though reviewed theses are now explicit.
 - Capture gating still depends on viewed evidence, not reviewed extractions.
 - Search is basic text matching, not full investigative search.
 - There is no background processing. Recompute runs inline in the request cycle.
@@ -174,7 +176,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - more detectors beyond `BOB_RUBIN_TRADE`
 - richer entity timelines instead of current placeholder event lists
 - saved filters and analyst views
-- richer reviewed-thesis composition across multiple extractions
+- append-only reviewed-thesis history instead of mutable upsert behavior
 - stronger explanation panels instead of raw JSON dumps
 - export formats beyond share token generation
 - notification and watchlist mechanics for fragilistas and Rubin-trade candidates
@@ -186,7 +188,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - Express API with repository abstraction
 - Postgres adapter and in-memory adapter
 - static web client at `/app`
-- evidence ingest, extraction creation, extraction review, evidence review action, discovery listing, capture gating, share, and recompute
+- evidence ingest, extraction creation, extraction review, reviewed-thesis save, evidence review action, discovery listing, capture gating, share, and recompute
 - unit, API, browser E2E, and optional Postgres integration tests
 
 ### What is still placeholder
@@ -194,7 +196,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - seed data stands in for real investigative content
 - entity profiles are partial and rely on seeded scores and synthetic timelines
 - multiple detectors exist, but the pattern library is still small
-- extraction review still writes back to the extraction row directly; there is no separate review history yet
+- reviewed theses are explicit now, but still mutable and single-record-per-user-per-discovery
 - there is no live market, alerting, or monitoring integration yet
 
 ### What must come later

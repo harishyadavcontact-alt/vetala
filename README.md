@@ -22,6 +22,7 @@ Real now:
 
 - working evidence-to-capture loop
 - extraction review states
+- reviewed thesis workflow
 - cautious detector confidence
 - live detector explanations
 - memory and Postgres repository paths

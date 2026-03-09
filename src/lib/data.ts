@@ -3,7 +3,7 @@ import { MemoryRepository } from "./memory-repository.js";
 import { PostgresRepository } from "./postgres-repository.js";
 import type { MemoryState } from "./memory-repository.js";
 import type { Repository } from "./repository.js";
-import { captures, demoUser, discoveries, events, evidence, extractions, organizations, people, scores, signals, userActions, users } from "./seed.js";
+import { captures, demoUser, discoveries, events, evidence, extractions, organizations, people, reviewedTheses, scores, signals, userActions, users } from "./seed.js";
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -18,6 +18,7 @@ export function createFixtureState(): MemoryState {
     signals: clone(signals),
     scores: clone(scores),
     discoveries: clone(discoveries),
+    reviewedTheses: clone(reviewedTheses),
     captures: clone(captures),
     userActions: clone(userActions),
   };

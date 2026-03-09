@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { captures, demoUser, discoveries, events, evidence, extractions, organizations, people, scores, signals, userActions } from "../src/lib/seed.js";
+import { captures, demoUser, discoveries, events, evidence, extractions, organizations, people, reviewedTheses, scores, signals, userActions } from "../src/lib/seed.js";
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -15,6 +15,7 @@ async function main() {
           signals: signals.length,
           scores: scores.length,
           discoveries: discoveries.length,
+          reviewedTheses: reviewedTheses.length,
           captures: captures.length,
           userActions: userActions.length,
         },
@@ -119,6 +120,32 @@ async function main() {
           [discovery.id, evidenceId],
         );
       }
+    }
+
+    for (const thesis of reviewedTheses) {
+      await client.query(
+        `INSERT INTO reviewed_theses (
+           id, user_id, discovery_id, subject_type, subject_id, pattern_type, thesis_statement,
+           supporting_evidence_ids, supporting_extraction_ids, confidence_label, analyst_note, created_at, updated_at
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (user_id, discovery_id) DO NOTHING`,
+        [
+          thesis.id,
+          thesis.user_id,
+          thesis.discovery_id,
+          thesis.subject_type,
+          thesis.subject_id,
+          thesis.pattern_type,
+          thesis.thesis_statement,
+          thesis.supporting_evidence_ids,
+          thesis.supporting_extraction_ids,
+          thesis.confidence_label,
+          thesis.analyst_note,
+          thesis.created_at,
+          thesis.updated_at,
+        ],
+      );
     }
 
     for (const capture of captures) {

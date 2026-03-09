@@ -173,6 +173,14 @@ export const reviewExtractionSchema = z.object({
   review_note: z.string().nullable().optional(),
 });
 
+export const saveReviewedThesisSchema = z.object({
+  thesis_statement: z.string().min(12),
+  supporting_evidence_ids: z.array(z.string().uuid()).min(1),
+  supporting_extraction_ids: z.array(z.string().uuid()).min(1),
+  confidence_label: z.enum(["watch", "conviction", "high_conviction"]),
+  analyst_note: z.string().nullable().optional(),
+});
+
 export const recomputeSignalsSchema = z.object({
   subject_type: z.enum(["person", "event", "org"]),
   subject_id: z.string().uuid(),

@@ -115,6 +115,22 @@ export interface Discovery {
   detector_version: string;
 }
 
+export interface ReviewedThesis {
+  id: string;
+  user_id: string;
+  discovery_id: string;
+  subject_type: SubjectType;
+  subject_id: string;
+  pattern_type: PatternType;
+  thesis_statement: string;
+  supporting_evidence_ids: string[];
+  supporting_extraction_ids: string[];
+  confidence_label: "watch" | "conviction" | "high_conviction";
+  analyst_note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -186,6 +202,7 @@ export interface RankedDiscovery extends Discovery {
   summary: DiscoverySummary;
   subject_label?: string;
   review_status: "reviewed_thesis" | "detector_hit";
+  reviewed_thesis: ReviewedThesis | null;
 }
 
 export interface EvidenceDetail extends Evidence {
@@ -203,6 +220,7 @@ export interface EntityProfile {
   event?: Event;
   scores: Score[];
   discoveries: RankedDiscovery[];
+  reviewed_theses: ReviewedThesis[];
   timeline: Event[];
   fragility_summary: FragilitySummary;
   recent_evidence: EvidenceHeadline[];

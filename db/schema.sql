@@ -148,6 +148,23 @@ CREATE TABLE users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE reviewed_theses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  discovery_id UUID NOT NULL REFERENCES discoveries(id) ON DELETE CASCADE,
+  subject_type TEXT NOT NULL CHECK (subject_type IN ('person','event','org')),
+  subject_id UUID NOT NULL,
+  pattern_type TEXT NOT NULL CHECK (pattern_type IN ('BOB_RUBIN_TRADE','REVOLVING_DOOR','BAILOUT_TO_BOARDROOM','COMPLEXITY_ARBITRAGE','POSTDICTING_STIGLITZ','IATROGENIC_INTERVENTION')),
+  thesis_statement TEXT NOT NULL,
+  supporting_evidence_ids UUID[] NOT NULL,
+  supporting_extraction_ids UUID[] NOT NULL,
+  confidence_label TEXT NOT NULL CHECK (confidence_label IN ('watch','conviction','high_conviction')),
+  analyst_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, discovery_id)
+);
+
 CREATE TABLE captures (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -168,6 +185,7 @@ CREATE TABLE user_actions (
 );
 
 CREATE INDEX idx_discoveries_subject ON discoveries(subject_type, subject_id);
+CREATE INDEX idx_reviewed_theses_subject ON reviewed_theses(subject_type, subject_id);
 CREATE INDEX idx_scores_subject ON scores(subject_type, subject_id);
 CREATE INDEX idx_events_title_fts ON events USING gin(to_tsvector('english', title));
 CREATE INDEX idx_people_name_fts ON people USING gin(to_tsvector('english', full_name));

@@ -9,6 +9,7 @@ import type {
   Organization,
   PatternType,
   Person,
+  ReviewedThesis,
   Score,
   Signal,
   User,
@@ -324,5 +325,24 @@ export const userActions: UserAction[] = [
     })),
   ),
 ];
+
+export const reviewedTheses: ReviewedThesis[] = discoveries.slice(0, 4).map((discovery, i) => ({
+  id: uuid(1100 + i + 1),
+  user_id: demoUser.id,
+  discovery_id: discovery.id,
+  subject_type: discovery.subject_type,
+  subject_id: discovery.subject_id,
+  pattern_type: discovery.pattern_type,
+  thesis_statement:
+    i % 2 === 0
+      ? "This subject repeatedly captures upside while taxpayers and diffuse stakeholders absorb the delayed downside."
+      : "The intervention record and role insulation support a fragility thesis stronger than a detector hit alone.",
+  supporting_evidence_ids: discovery.evidence_ids,
+  supporting_extraction_ids: extractions.filter((extraction) => discovery.evidence_ids.includes(extraction.evidence_id)).slice(0, 2).map((extraction) => extraction.id),
+  confidence_label: (i % 3 === 0 ? "high_conviction" : "conviction") as ReviewedThesis["confidence_label"],
+  analyst_note: i % 2 === 0 ? "Reviewed against extraction support and downside-bearer pattern." : null,
+  created_at: new Date(now - i * 5400000).toISOString(),
+  updated_at: new Date(now - i * 3600000).toISOString(),
+}));
 
 export const users: User[] = [demoUser];

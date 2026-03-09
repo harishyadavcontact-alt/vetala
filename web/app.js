@@ -74,6 +74,18 @@ function discoveryStatusVariant(discovery) {
   return discovery.review_status === "reviewed_thesis" ? "ok" : "warn";
 }
 
+async function collectDiscoverySupport(discovery) {
+  const details = await Promise.all(discovery.evidence.map((item) => api(`/api/v1/evidence/${item.id}`)));
+  const reviewedExtractions = details.flatMap((detail) => detail.extractions.filter((extraction) => extraction.review_status === "reviewed"));
+  const fallbackExtractions = details.flatMap((detail) => detail.extractions);
+  const selectedExtractions = reviewedExtractions.length > 0 ? reviewedExtractions : fallbackExtractions;
+
+  return {
+    supporting_evidence_ids: discovery.evidence.map((item) => item.id),
+    supporting_extraction_ids: selectedExtractions.map((extraction) => extraction.id),
+  };
+}
+
 function extractionCard(extraction) {
   const fragilityAssessment = extraction.json_output?.fragility_assessment ?? { note: "No fragility assessment recorded yet." };
   const reviewNote = extraction.review_note ? `<p class="meta">${extraction.review_note}</p>` : "";
@@ -249,16 +261,20 @@ async function loadEntityProfile(subjectType, subjectId) {
   const recentEvidence = profile.recent_evidence.map((item) => `<li>${item.title} | ${item.publisher} | tier ${item.trust_tier}</li>`).join("");
   const timeline = profile.timeline.map((item) => `<li>${item.start_date ?? "undated"} | ${item.title}</li>`).join("");
   const reviewedDiscoveries = profile.discoveries
-    .filter((discovery) => discovery.summary.reviewed_extraction_count > 0)
+    .filter((discovery) => discovery.reviewed_thesis)
     .slice(0, 3)
     .map(
       (discovery) =>
-        `<li>${discovery.pattern_label} | ${discovery.summary.reviewed_extraction_count}/${discovery.summary.extraction_count} reviewed extractions | conf ${discovery.confidence.toFixed(2)}</li>`,
+        `<li>${discovery.pattern_label} | ${discovery.reviewed_thesis.confidence_label} | ${discovery.reviewed_thesis.thesis_statement}</li>`,
     )
     .join("");
   const detectorHits = profile.discoveries
     .slice(0, 4)
     .map((discovery) => `<li>${discovery.pattern_label} | ${discovery.review_status === "reviewed_thesis" ? "reviewed thesis" : "detector hit"}</li>`)
+    .join("");
+  const thesisLedger = profile.reviewed_theses
+    .slice(0, 4)
+    .map((thesis) => `<li>${thesis.confidence_label} | ${thesis.thesis_statement}</li>`)
     .join("");
 
   nodes.entityProfile.innerHTML = `
@@ -280,7 +296,11 @@ async function loadEntityProfile(subjectType, subjectId) {
     </div>
     <div>
       <p class="eyebrow">Reviewed theses</p>
-      <ul>${reviewedDiscoveries || "<li>No reviewed extraction support yet.</li>"}</ul>
+      <ul>${reviewedDiscoveries || "<li>No reviewed thesis recorded yet.</li>"}</ul>
+    </div>
+    <div>
+      <p class="eyebrow">Analyst ledger</p>
+      <ul>${thesisLedger || "<li>No analyst thesis saved yet.</li>"}</ul>
     </div>
     <div>
       <p class="eyebrow">Detector hits</p>
@@ -320,9 +340,29 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
       ${discovery.summary.challenged_extraction_count > 0 ? tag(`${discovery.summary.challenged_extraction_count} challenged`, "warn") : ""}
     </div>
     <div>
+      <p class="eyebrow">Analyst thesis</p>
+      <p class="meta">${discovery.reviewed_thesis ? discovery.reviewed_thesis.thesis_statement : "No reviewed thesis saved yet. Detector confidence alone does not create an analyst-backed claim."}</p>
+      <div class="tag-row">
+        ${discovery.reviewed_thesis ? tag(discovery.reviewed_thesis.confidence_label, "ok") : tag("detector only", "warn")}
+      </div>
+    </div>
+    <div>
       <p class="eyebrow">Why this fired</p>
       <pre>${JSON.stringify(discovery.explanation_json, null, 2)}</pre>
     </div>
+    <form id="thesis-form">
+      <textarea name="thesis_statement" placeholder="Write the reviewed thesis">${discovery.reviewed_thesis?.thesis_statement ?? ""}</textarea>
+      <select name="confidence_label">
+        <option value="watch" ${discovery.reviewed_thesis?.confidence_label === "watch" ? "selected" : ""}>Watch</option>
+        <option value="conviction" ${discovery.reviewed_thesis?.confidence_label === "conviction" ? "selected" : ""}>Conviction</option>
+        <option value="high_conviction" ${discovery.reviewed_thesis?.confidence_label === "high_conviction" ? "selected" : ""}>High conviction</option>
+      </select>
+      <textarea name="analyst_note" placeholder="Analyst note">${discovery.reviewed_thesis?.analyst_note ?? ""}</textarea>
+      <div class="inline-actions">
+        <button type="submit">Save reviewed thesis</button>
+      </div>
+      <p class="small" id="thesis-status"></p>
+    </form>
     <form id="capture-form">
       <textarea name="note" placeholder="Capture note"></textarea>
       <div class="inline-actions">
@@ -335,6 +375,34 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
   `;
 
   await loadEntityProfile(discovery.subject_type, discovery.subject_id);
+
+  document.querySelector("#thesis-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const statusNode = document.querySelector("#thesis-status");
+    try {
+      const support = await collectDiscoverySupport(discovery);
+      if (support.supporting_extraction_ids.length === 0) {
+        statusNode.textContent = "No linked extraction is available to support a reviewed thesis yet.";
+        return;
+      }
+      await api(`/api/v1/discoveries/${id}/reviewed-thesis`, {
+        method: "POST",
+        body: JSON.stringify({
+          thesis_statement: String(form.get("thesis_statement") || ""),
+          confidence_label: String(form.get("confidence_label") || "watch"),
+          analyst_note: String(form.get("analyst_note") || "") || null,
+          supporting_evidence_ids: support.supporting_evidence_ids,
+          supporting_extraction_ids: support.supporting_extraction_ids,
+        }),
+      });
+      await loadAll();
+      await loadCaptureWorkspace(id, statusMessage);
+    } catch (error) {
+      statusNode.textContent = error.message;
+    }
+  });
 
   document.querySelector("#capture-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();

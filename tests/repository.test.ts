@@ -90,4 +90,30 @@ describe("memory repository", () => {
     expect(discoveries[0].summary).toHaveProperty("reviewed_extraction_count");
     expect(discoveries[0].summary).toHaveProperty("extraction_review_ratio");
   });
+
+  it("saves reviewed theses separately from extraction review state", async () => {
+    const state = createFixtureState();
+    const repository = new MemoryRepository(state);
+    const user = await repository.getDefaultUser();
+    const discoveries = await repository.listDiscoveries(user.id, { status: "suggested" });
+    const target = discoveries.find((discovery) => discovery.review_status === "detector_hit") ?? discoveries[0];
+
+    const thesis = await repository.saveReviewedThesis(user.id, {
+      discovery_id: target.id,
+      thesis_statement: "Repository-backed thesis about asymmetric upside and delayed systemic downside.",
+      supporting_evidence_ids: target.evidence.map((item) => item.id),
+      supporting_extraction_ids: state.extractions
+        .filter((extraction) => target.evidence.some((item) => item.id === extraction.evidence_id))
+        .slice(0, 1)
+        .map((extraction) => extraction.id),
+      confidence_label: "watch",
+      analyst_note: "Repository test thesis.",
+    });
+
+    expect(thesis.discovery_id).toBe(target.id);
+
+    const updated = await repository.getDiscoveryById(target.id, user.id);
+    expect(updated?.review_status).toBe("reviewed_thesis");
+    expect(updated?.reviewed_thesis?.thesis_statement).toContain("asymmetric upside");
+  });
 });

@@ -8,31 +8,25 @@ Use the next build window to turn the current fragility radar into a more usable
 
 The app is now coherent, but three things are still thin:
 
-- the reviewed-thesis layer is implicit, not explicit
 - subject pages still rely on synthetic timeline and summary composition
 - install/run docs are workable for developers but not yet robust for first-time operators
+- detector fixtures are still too light for a growing detector library
 
 ## Work Plan
 
 ### 1. Make reviewed thesis explicit
 
-Implement:
-- a first-class reviewed-thesis record, separate from extraction row state
-- thesis fields:
-  - subject
-  - pattern type
-  - thesis statement
-  - supporting evidence IDs
-  - supporting extraction IDs
-  - confidence override or endorsement level
-  - analyst note
-  - created_at
+Status:
+- completed
 
-Why now:
-- this removes the current ambiguity where a reviewed extraction implies a stronger thesis without a dedicated analyst conclusion
+Delivered:
+- reviewed-thesis record separated from extraction review
+- discovery-level thesis save API
+- analyst thesis form in the capture workspace
+- subject profile thesis ledger
 
-Acceptance:
-- the UI can show both detector hits and reviewed theses cleanly
+Follow-up:
+- convert reviewed theses from mutable upsert state into append-only history
 
 ### 2. Improve subject pages
 

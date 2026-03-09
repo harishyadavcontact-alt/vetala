@@ -7,6 +7,7 @@ import type {
   Extraction,
   LeaderboardEntry,
   RankedDiscovery,
+  ReviewedThesis,
   Score,
   SearchResults,
   SubjectType,
@@ -67,6 +68,15 @@ export interface CreateUserActionInput {
   entity_id: string;
 }
 
+export interface SaveReviewedThesisInput {
+  discovery_id: string;
+  thesis_statement: string;
+  supporting_evidence_ids: string[];
+  supporting_extraction_ids: string[];
+  confidence_label: ReviewedThesis["confidence_label"];
+  analyst_note?: string | null;
+}
+
 export interface CaptureInput {
   discovery_id: string;
   note?: string | null;
@@ -87,6 +97,7 @@ export interface Repository {
   createEvidence(input: CreateEvidenceInput): Promise<{ created: boolean; evidence: Evidence }>;
   createExtraction(input: CreateExtractionInput): Promise<Extraction>;
   reviewExtraction(id: string, input: ReviewExtractionInput): Promise<Extraction>;
+  saveReviewedThesis(userId: string, input: SaveReviewedThesisInput): Promise<ReviewedThesis>;
   createUserAction(input: CreateUserActionInput): Promise<UserAction>;
   listDiscoveries(userId: string, filters?: DiscoveryFilters): Promise<RankedDiscovery[]>;
   getDiscoveryById(id: string, userId: string): Promise<RankedDiscovery | null>;

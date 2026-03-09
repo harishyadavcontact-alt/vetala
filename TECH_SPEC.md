@@ -158,6 +158,24 @@ Entity profile-only derived fields:
 - `fragility_summary`
 - `recent_evidence`
 
+### Reviewed Thesis
+
+Fields:
+
+- `id`
+- `user_id`
+- `discovery_id`
+- `subject_type`
+- `subject_id`
+- `pattern_type`
+- `thesis_statement`
+- `supporting_evidence_ids`
+- `supporting_extraction_ids`
+- `confidence_label`
+- `analyst_note`
+- `created_at`
+- `updated_at`
+
 ### Capture
 
 Fields:
@@ -239,6 +257,11 @@ All routes live under `/api/v1`.
 
 - `GET /discoveries/:id/explanation`
   - returns `discovery.explanation_json`
+
+- `POST /discoveries/:id/reviewed-thesis`
+  - body validated by `saveReviewedThesisSchema`
+  - upserts one reviewed thesis per `user_id + discovery_id`
+  - rejects support IDs that do not belong to the selected discovery
 
 - `POST /discoveries/:id/capture`
   - body: `{ note?: string | null }`
@@ -370,7 +393,9 @@ Important implications:
 - user feedback is inline text, not toast/notification infrastructure
 - discovery cards now rely on `subject_label` when the repository provides it
 - discovery cards also rely on `review_status` and extraction-review summary fields
+- capture workspace now owns the reviewed-thesis authoring form
 - entity profiles render `timeline` and `recent_evidence` directly from API payloads
+- entity profiles now render `reviewed_theses`
 - evidence detail renders all extractions, not just the first extraction
 - watchlist and leaderboard panels refresh from server state inside the same page-local fetch loop
 
@@ -413,6 +438,7 @@ Browser E2E:
   - ingest evidence
   - blocked capture before review
   - extraction review mutation
+  - reviewed thesis save
   - review evidence
   - successful capture
   - share token generation
@@ -441,6 +467,7 @@ Validation order:
 - Should capture eventually require reviewed extractions instead of only viewed evidence?
 - Should recompute replace prior discoveries or version them historically?
 - Should extraction review become append-only review events instead of mutable columns on `extractions`?
+- Should reviewed theses become append-only history instead of upserted current state?
 - Which of the placeholder pattern types are intended to become real detectors next?
 - Should source diversity remain a simple unique-publisher ratio or become a stronger provenance metric?
 - Is in-memory mode meant to survive long-term as a demo mode, or should it become test-only?

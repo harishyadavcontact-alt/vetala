@@ -38,6 +38,10 @@ test("extraction review updates evidence and discovery framing", async ({ page }
   await page.locator("#discovery-list .card").first().click();
   await expect(page.locator("#capture-workspace")).toContainText(/reviewed thesis|detector hit/);
   await expect(page.locator("#capture-workspace")).toContainText("review ratio");
+  await page.locator("#thesis-form textarea[name='thesis_statement']").fill("Playwright reviewed thesis about downside transfer.");
+  await page.locator("#thesis-form button[type='submit']").click();
+  await expect(page.locator("#capture-workspace")).toContainText("Playwright reviewed thesis about downside transfer.");
+  await expect(page.locator("#entity-profile")).toContainText("Analyst ledger");
 });
 
 test("evidence ingest updates the inbox", async ({ page }) => {

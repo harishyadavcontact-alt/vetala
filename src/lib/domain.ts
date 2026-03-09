@@ -15,6 +15,7 @@ import type {
   Extraction,
   FragilitySummary,
   RankedDiscovery,
+  ReviewedThesis,
   Score,
   Signal,
   SubjectType,
@@ -253,18 +254,21 @@ export function rankDiscovery(
   discovery: Discovery,
   evidence: Evidence[],
   extractions: Extraction[],
+  reviewedTheses: ReviewedThesis[],
   actions: UserAction[],
   userId: string,
 ): RankedDiscovery {
   const linkedEvidence = evidence.filter((item) => discovery.evidence_ids.includes(item.id)).sort(sortEvidence);
   const linkedExtractions = extractions.filter((extraction) => discovery.evidence_ids.includes(extraction.evidence_id)).sort(sortExtractions);
   const summary = discoverySummary(discovery, linkedEvidence, linkedExtractions, actions, userId);
+  const reviewedThesis = reviewedTheses.find((item) => item.user_id === userId && item.discovery_id === discovery.id) ?? null;
 
   return {
     ...discovery,
     evidence: linkedEvidence,
     summary,
-    review_status: summary.reviewed_extraction_count > 0 ? "reviewed_thesis" : "detector_hit",
+    review_status: reviewedThesis ? "reviewed_thesis" : "detector_hit",
+    reviewed_thesis: reviewedThesis,
   };
 }
 
@@ -283,12 +287,12 @@ export function buildFragilitySummary(scores: Score[], discoveries: RankedDiscov
 
   const strongest = discoveries
     .slice()
-    .sort((a, b) => b.summary.reviewed_extraction_count - a.summary.reviewed_extraction_count || b.severity_score - a.severity_score)[0];
+    .sort((a, b) => Number(Boolean(b.reviewed_thesis)) - Number(Boolean(a.reviewed_thesis)) || b.severity_score - a.severity_score)[0];
   const thesis = !strongest
     ? "No evidence-backed fragility thesis has been captured for this subject yet."
-    : strongest.summary.reviewed_extraction_count > 0
-      ? `${strongest.pattern_label} has reviewed extraction support and is currently the strongest fragility thesis on record.`
-      : `${strongest.pattern_label} is currently a detector hit only and still needs reviewed extraction support.`;
+    : strongest.reviewed_thesis
+      ? strongest.reviewed_thesis.thesis_statement
+      : `${strongest.pattern_label} is currently a detector hit only and still needs an analyst-backed reviewed thesis.`;
 
   return {
     skin_in_the_game_gap: scoreValue("SITG"),

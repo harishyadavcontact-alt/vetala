@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { buildDiscovery, buildEvidenceHeadlines, buildFragilitySummary, buildScores, rankDiscovery } from "./domain.js";
-import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
+import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, ReviewedThesis, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
   CreateEvidenceInput,
@@ -12,6 +12,7 @@ import type {
   ReviewExtractionInput,
   RecomputeResult,
   Repository,
+  SaveReviewedThesisInput,
 } from "./repository.js";
 
 const asNumber = (value: unknown): number => (typeof value === "number" ? value : Number(value));
@@ -180,6 +181,66 @@ export class PostgresRepository implements Repository {
       [input.user_id, input.action_type, input.entity_type, input.entity_id],
     );
     return result.rows[0];
+  }
+
+  async saveReviewedThesis(userId: string, input: SaveReviewedThesisInput): Promise<ReviewedThesis> {
+    const discovery = await this.pool.query<Discovery>(
+      `SELECT id, subject_type, subject_id, pattern_type,
+              ARRAY(SELECT evidence_id FROM discovery_evidence WHERE discovery_id = discoveries.id) AS evidence_ids
+       FROM discoveries
+       WHERE id = $1`,
+      [input.discovery_id],
+    );
+    if (discovery.rowCount === 0) {
+      throw new Error("DISCOVERY_NOT_FOUND");
+    }
+
+    const row = discovery.rows[0];
+    const evidenceIds = Array.isArray(row.evidence_ids) ? row.evidence_ids : [];
+    if (!input.supporting_evidence_ids.every((evidenceId) => evidenceIds.includes(evidenceId))) {
+      throw new Error("INVALID_THESIS_SUPPORT");
+    }
+    const extractionSupport = await this.pool.query<{ id: string }>(
+      `SELECT id::text
+       FROM extractions
+       WHERE id = ANY($1::uuid[]) AND evidence_id = ANY($2::uuid[])`,
+      [input.supporting_extraction_ids, evidenceIds],
+    );
+    if (extractionSupport.rowCount !== input.supporting_extraction_ids.length) {
+      throw new Error("INVALID_THESIS_SUPPORT");
+    }
+
+    const result = await this.pool.query<ReviewedThesis>(
+      `INSERT INTO reviewed_theses (
+         user_id, discovery_id, subject_type, subject_id, pattern_type, thesis_statement,
+         supporting_evidence_ids, supporting_extraction_ids, confidence_label, analyst_note
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7::uuid[],$8::uuid[],$9,$10)
+       ON CONFLICT (user_id, discovery_id)
+       DO UPDATE SET
+         thesis_statement = EXCLUDED.thesis_statement,
+         supporting_evidence_ids = EXCLUDED.supporting_evidence_ids,
+         supporting_extraction_ids = EXCLUDED.supporting_extraction_ids,
+         confidence_label = EXCLUDED.confidence_label,
+         analyst_note = EXCLUDED.analyst_note,
+         updated_at = now()
+       RETURNING id, user_id::text, discovery_id::text, subject_type, subject_id::text, pattern_type, thesis_statement,
+                 supporting_evidence_ids::text[], supporting_extraction_ids::text[], confidence_label, analyst_note,
+                 created_at::text, updated_at::text`,
+      [
+        userId,
+        input.discovery_id,
+        row.subject_type,
+        row.subject_id,
+        row.pattern_type,
+        input.thesis_statement,
+        input.supporting_evidence_ids,
+        input.supporting_extraction_ids,
+        input.confidence_label,
+        input.analyst_note ?? null,
+      ],
+    );
+    return this.normalizeReviewedThesis(result.rows[0]);
   }
 
   async listDiscoveries(userId: string, filters: DiscoveryFilters = {}) {
@@ -357,6 +418,7 @@ export class PostgresRepository implements Repository {
         scores,
         discoveries,
         timeline: (await this.pool.query<Event>("SELECT id, title, category, summary, start_date::text, end_date::text, jurisdiction FROM events ORDER BY start_date DESC LIMIT 5")).rows,
+        reviewed_theses: await this.loadReviewedThesesForSubject(userId, subjectType, id),
         fragility_summary: buildFragilitySummary(scores, discoveries),
         recent_evidence: buildEvidenceHeadlines(discoveries),
       };
@@ -375,6 +437,7 @@ export class PostgresRepository implements Repository {
         scores,
         discoveries,
         timeline: [],
+        reviewed_theses: await this.loadReviewedThesesForSubject(userId, subjectType, id),
         fragility_summary: buildFragilitySummary(scores, discoveries),
         recent_evidence: buildEvidenceHeadlines(discoveries),
       };
@@ -392,6 +455,7 @@ export class PostgresRepository implements Repository {
       scores,
       discoveries,
       timeline: event.rows,
+      reviewed_theses: await this.loadReviewedThesesForSubject(userId, subjectType, id),
       fragility_summary: buildFragilitySummary(scores, discoveries),
       recent_evidence: buildEvidenceHeadlines(discoveries),
     };
@@ -440,14 +504,15 @@ export class PostgresRepository implements Repository {
 
   private async rankDiscoveries(discoveries: Discovery[], userId: string) {
     const evidenceIds = Array.from(new Set(discoveries.flatMap((discovery) => discovery.evidence_ids)));
-    const [evidence, extractions, actions] = await Promise.all([
+    const [evidence, extractions, reviewedTheses, actions] = await Promise.all([
       this.loadEvidenceForIds(evidenceIds),
       this.loadExtractionsForEvidence(evidenceIds),
+      this.loadReviewedThesesForDiscoveries(userId, discoveries.map((discovery) => discovery.id)),
       this.loadUserActions(userId),
     ]);
     const labels = await this.loadSubjectLabels(discoveries);
     return discoveries.map((discovery) => ({
-      ...rankDiscovery(discovery, evidence, extractions, actions, userId),
+      ...rankDiscovery(discovery, evidence, extractions, reviewedTheses, actions, userId),
       subject_label: labels.get(`${discovery.subject_type}:${discovery.subject_id}`) ?? discovery.subject_id,
     }));
   }
@@ -497,6 +562,44 @@ export class PostgresRepository implements Repository {
       reviewed_at: row.reviewed_at ?? null,
       reviewed_by: row.reviewed_by ?? null,
     };
+  }
+
+  private normalizeReviewedThesis(row: ReviewedThesis): ReviewedThesis {
+    return {
+      ...row,
+      analyst_note: row.analyst_note ?? null,
+      supporting_evidence_ids: Array.isArray(row.supporting_evidence_ids) ? row.supporting_evidence_ids : [],
+      supporting_extraction_ids: Array.isArray(row.supporting_extraction_ids) ? row.supporting_extraction_ids : [],
+    };
+  }
+
+  private async loadReviewedThesesForDiscoveries(userId: string, discoveryIds: string[]): Promise<ReviewedThesis[]> {
+    if (discoveryIds.length === 0) {
+      return [];
+    }
+    const result = await this.pool.query<ReviewedThesis>(
+      `SELECT id, user_id::text, discovery_id::text, subject_type, subject_id::text, pattern_type, thesis_statement,
+              supporting_evidence_ids::text[], supporting_extraction_ids::text[], confidence_label, analyst_note,
+              created_at::text, updated_at::text
+       FROM reviewed_theses
+       WHERE user_id = $1 AND discovery_id = ANY($2::uuid[])
+       ORDER BY updated_at DESC`,
+      [userId, discoveryIds],
+    );
+    return result.rows.map((row) => this.normalizeReviewedThesis(row));
+  }
+
+  private async loadReviewedThesesForSubject(userId: string, subjectType: SubjectType, subjectId: string): Promise<ReviewedThesis[]> {
+    const result = await this.pool.query<ReviewedThesis>(
+      `SELECT id, user_id::text, discovery_id::text, subject_type, subject_id::text, pattern_type, thesis_statement,
+              supporting_evidence_ids::text[], supporting_extraction_ids::text[], confidence_label, analyst_note,
+              created_at::text, updated_at::text
+       FROM reviewed_theses
+       WHERE user_id = $1 AND subject_type = $2 AND subject_id = $3
+       ORDER BY updated_at DESC`,
+      [userId, subjectType, subjectId],
+    );
+    return result.rows.map((row) => this.normalizeReviewedThesis(row));
   }
 
   private async loadSignals(subjectType: SubjectType, subjectId: string): Promise<Signal[]> {

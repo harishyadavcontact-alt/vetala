@@ -154,4 +154,30 @@ describe("workflow api", () => {
       extraction_review_ratio: expect.any(Number),
     });
   });
+
+  it("saves a reviewed thesis and returns it on discovery and subject profile", async () => {
+    const discoveries = await request(app).get("/api/v1/discoveries?status=suggested");
+    const target = discoveries.body.find((item: { evidence: Array<{ id: string }> }) => item.evidence.length > 0);
+    const evidenceDetail = await request(app).get(`/api/v1/evidence/${target.evidence[0].id}`);
+    const extractionId = evidenceDetail.body.extractions[0].id;
+
+    const save = await request(app).post(`/api/v1/discoveries/${target.id}/reviewed-thesis`).send({
+      thesis_statement: "The subject repeatedly captures upside while public downside accumulates off balance sheet.",
+      supporting_evidence_ids: target.evidence.map((item: { id: string }) => item.id),
+      supporting_extraction_ids: [extractionId],
+      confidence_label: "conviction",
+      analyst_note: "API thesis save test.",
+    });
+    expect(save.status).toBe(201);
+
+    const updatedDiscovery = await request(app).get(`/api/v1/discoveries/${target.id}`);
+    expect(updatedDiscovery.body.review_status).toBe("reviewed_thesis");
+    expect(updatedDiscovery.body.reviewed_thesis).toMatchObject({
+      thesis_statement: "The subject repeatedly captures upside while public downside accumulates off balance sheet.",
+      confidence_label: "conviction",
+    });
+
+    const profile = await request(app).get(`/api/v1/people/${target.subject_id}`);
+    expect(profile.body.reviewed_theses.some((thesis: { discovery_id: string }) => thesis.discovery_id === target.id)).toBe(true);
+  });
 });

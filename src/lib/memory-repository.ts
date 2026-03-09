@@ -1,5 +1,5 @@
 import { buildEvidenceHeadlines, buildDiscovery, buildFragilitySummary, buildScores, createId, rankDiscovery, sortExtractions } from "./domain.js";
-import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
+import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, ReviewedThesis, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
   CreateEvidenceInput,
@@ -11,6 +11,7 @@ import type {
   ReviewExtractionInput,
   RecomputeResult,
   Repository,
+  SaveReviewedThesisInput,
 } from "./repository.js";
 
 export interface MemoryState {
@@ -23,6 +24,7 @@ export interface MemoryState {
   signals: Signal[];
   scores: Score[];
   discoveries: Discovery[];
+  reviewedTheses: ReviewedThesis[];
   captures: Capture[];
   userActions: UserAction[];
 }
@@ -169,6 +171,44 @@ export class MemoryRepository implements Repository {
     return action;
   }
 
+  async saveReviewedThesis(userId: string, input: SaveReviewedThesisInput): Promise<ReviewedThesis> {
+    const discovery = this.state.discoveries.find((item) => item.id === input.discovery_id);
+    if (!discovery) {
+      throw new Error("DISCOVERY_NOT_FOUND");
+    }
+    if (!input.supporting_evidence_ids.every((evidenceId) => discovery.evidence_ids.includes(evidenceId))) {
+      throw new Error("INVALID_THESIS_SUPPORT");
+    }
+    const validExtractionIds = new Set(
+      this.state.extractions.filter((extraction) => discovery.evidence_ids.includes(extraction.evidence_id)).map((extraction) => extraction.id),
+    );
+    if (!input.supporting_extraction_ids.every((extractionId) => validExtractionIds.has(extractionId))) {
+      throw new Error("INVALID_THESIS_SUPPORT");
+    }
+
+    const existing = this.state.reviewedTheses.find((item) => item.user_id === userId && item.discovery_id === input.discovery_id);
+    const now = new Date().toISOString();
+    const thesis: ReviewedThesis = {
+      id: existing?.id ?? createId(),
+      user_id: userId,
+      discovery_id: discovery.id,
+      subject_type: discovery.subject_type,
+      subject_id: discovery.subject_id,
+      pattern_type: discovery.pattern_type,
+      thesis_statement: input.thesis_statement,
+      supporting_evidence_ids: input.supporting_evidence_ids,
+      supporting_extraction_ids: input.supporting_extraction_ids,
+      confidence_label: input.confidence_label,
+      analyst_note: input.analyst_note ?? null,
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    };
+
+    this.state.reviewedTheses = this.state.reviewedTheses.filter((item) => !(item.user_id === userId && item.discovery_id === input.discovery_id));
+    this.state.reviewedTheses.unshift(thesis);
+    return thesis;
+  }
+
   async listDiscoveries(userId: string, filters: DiscoveryFilters = {}) {
     return this.state.discoveries
       .filter((discovery) => {
@@ -187,7 +227,7 @@ export class MemoryRepository implements Repository {
         return true;
       })
       .map((discovery) => ({
-        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
+        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.reviewedTheses, this.state.userActions, userId),
         subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
       }))
       .sort((a, b) => b.severity_score - a.severity_score || b.detected_at.localeCompare(a.detected_at));
@@ -197,7 +237,7 @@ export class MemoryRepository implements Repository {
     const discovery = this.state.discoveries.find((item) => item.id === id);
     return discovery
       ? {
-          ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
+          ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.reviewedTheses, this.state.userActions, userId),
           subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
         }
       : null;
@@ -257,7 +297,7 @@ export class MemoryRepository implements Repository {
     return this.state.discoveries
       .filter((discovery) => watchedDiscoveryIds.has(discovery.id))
       .map((discovery) => ({
-        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
+        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.reviewedTheses, this.state.userActions, userId),
         subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
       }))
       .sort((a, b) => b.severity_score - a.severity_score || b.confidence - a.confidence);
@@ -312,6 +352,7 @@ export class MemoryRepository implements Repository {
         person,
         scores,
         discoveries,
+        reviewed_theses: this.state.reviewedTheses.filter((thesis) => thesis.user_id === userId && thesis.subject_type === "person" && thesis.subject_id === id),
         timeline: this.state.events.filter((_, index) => index % this.state.people.length === this.state.people.findIndex((candidate) => candidate.id === id)),
         fragility_summary: buildFragilitySummary(scores, discoveries),
         recent_evidence: buildEvidenceHeadlines(discoveries),
@@ -330,6 +371,7 @@ export class MemoryRepository implements Repository {
         organization,
         scores,
         discoveries,
+        reviewed_theses: this.state.reviewedTheses.filter((thesis) => thesis.user_id === userId && thesis.subject_type === "org" && thesis.subject_id === id),
         timeline: [],
         fragility_summary: buildFragilitySummary(scores, discoveries),
         recent_evidence: buildEvidenceHeadlines(discoveries),
@@ -348,6 +390,7 @@ export class MemoryRepository implements Repository {
       event,
       scores,
       discoveries,
+      reviewed_theses: this.state.reviewedTheses.filter((thesis) => thesis.user_id === userId && thesis.subject_type === "event" && thesis.subject_id === id),
       timeline: [event],
       fragility_summary: buildFragilitySummary(scores, discoveries),
       recent_evidence: buildEvidenceHeadlines(discoveries),
@@ -368,7 +411,7 @@ export class MemoryRepository implements Repository {
     return {
       signals: subjectSignals.length,
       scores: freshScores,
-      discoveries: freshDiscoveries.map((discovery) => rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId)),
+      discoveries: freshDiscoveries.map((discovery) => rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.reviewedTheses, this.state.userActions, userId)),
     };
   }
 
