@@ -1,4 +1,4 @@
-import { createId, buildDiscovery, buildScores, rankDiscovery } from "./domain.js";
+import { buildEvidenceHeadlines, buildDiscovery, buildFragilitySummary, buildScores, createId, rankDiscovery } from "./domain.js";
 import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
@@ -233,6 +233,11 @@ export class MemoryRepository implements Repository {
         scores: this.state.scores.filter((score) => score.subject_type === "person" && score.subject_id === id),
         discoveries: await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
         timeline: this.state.events.filter((_, index) => index % this.state.people.length === this.state.people.findIndex((candidate) => candidate.id === id)),
+        fragility_summary: buildFragilitySummary(
+          this.state.scores.filter((score) => score.subject_type === "person" && score.subject_id === id),
+          await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
+        ),
+        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "person", subject_id: id })),
       };
     }
 
@@ -247,6 +252,11 @@ export class MemoryRepository implements Repository {
         scores: this.state.scores.filter((score) => score.subject_type === "org" && score.subject_id === id),
         discoveries: await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
         timeline: [],
+        fragility_summary: buildFragilitySummary(
+          this.state.scores.filter((score) => score.subject_type === "org" && score.subject_id === id),
+          await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
+        ),
+        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "org", subject_id: id })),
       };
     }
 
@@ -261,6 +271,11 @@ export class MemoryRepository implements Repository {
       scores: this.state.scores.filter((score) => score.subject_type === "event" && score.subject_id === id),
       discoveries: await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
       timeline: [event],
+      fragility_summary: buildFragilitySummary(
+        this.state.scores.filter((score) => score.subject_type === "event" && score.subject_id === id),
+        await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
+      ),
+      recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "event", subject_id: id })),
     };
   }
 

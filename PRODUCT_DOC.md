@@ -17,18 +17,16 @@ Analytical tools often let users jump from a claim to a saved insight without fo
 
 Vetala addresses that by making evidence, extraction, discovery, and capture separate states with an explicit review gate between discovery and capture.
 
-## Why It Matters In Dimentria
+## Why It Matters
 
-The codebase does not contain any Dimentria-specific integrations, so this section is necessarily an interpretation, not a system fact.
+Vetala only makes sense if it helps users identify people and trades with hidden downside transfer. The point is not generic investigation. The point is to surface fragilistas: actors who benefit from small visible upside while pushing rare, severe, or delayed losses onto others.
 
-If Dimentria is the broader investigative or decision-support product, Vetala is the part that keeps the evidence chain intact. Its job is not broad workflow orchestration. Its job is to make sure Dimentria has a source-grounded layer for:
+In that frame, the current evidence-review and capture-gating model matters because it forces the user to distinguish between:
 
-- evidence intake
-- claim/extraction review
-- explainable pattern detection
-- controlled promotion of findings into reusable dossiers
+- a strong narrative
+- a source-backed fragility thesis
 
-Without this layer, Dimentria would have storage and display, but not disciplined analytical provenance.
+That distinction is the difference between gossip about elites and a usable fragility radar.
 
 ## Core User Outcomes
 
@@ -142,7 +140,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - The only detector with implemented logic is `BOB_RUBIN_TRADE`.
 - Other pattern names exist in types and seed data, but they are not implemented detectors.
 - In-memory mode is useful for dev and tests, not as production storage.
-- Dimentria integration is not present in this repo.
+- There is no integration with any larger platform. Vetala stands alone in this repo.
 
 ## Next Extensions
 
@@ -153,7 +151,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - saved filters and analyst views
 - explicit extraction review UI instead of raw JSON dumps
 - export formats beyond share token generation
-- Dimentria-level integration points once the surrounding platform exists
+- notification and watchlist mechanics for fragilistas and Rubin-trade candidates
 
 ## Reality Check
 
@@ -171,7 +169,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - entity profiles are partial and rely on seeded scores and synthetic timelines
 - only one detector has real logic
 - extraction review is raw JSON, not a curated analyst UI
-- there is no real Dimentria service integration
+- there is no live market, alerting, or monitoring integration yet
 
 ### What must come later
 

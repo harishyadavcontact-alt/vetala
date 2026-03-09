@@ -392,7 +392,7 @@ Validation order:
 
 ## Open Questions
 
-- What should Dimentria-level identity and authorization look like beyond `x-user-id`?
+- What should production identity and authorization look like beyond `x-user-id`?
 - Should evidence review require all linked evidence or only one linked evidence before capture?
 - Should recompute replace prior discoveries or version them historically?
 - How should extraction review evolve beyond raw JSON display?

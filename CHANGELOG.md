@@ -46,5 +46,5 @@
 - only one detector, `BOB_RUBIN_TRADE`, has real logic
 - entity timeline data is still synthetic/partial
 - extraction review is raw JSON, not a structured analyst review surface
-- Dimentria integration is not present
+- there is no live market, alerting, or monitoring integration
 - local DB validation still depends on an available `DATABASE_URL`

@@ -81,6 +81,39 @@ export const extractions: Extraction[] = evidence.slice(0, 24).map((item, i) => 
     people: [{ name: people[i % people.length].full_name, aliases: [], country: people[i % people.length].primary_country, confidence: 0.88 }],
     orgs: [{ name: organizations[i % organizations.length].name, org_type: organizations[i % organizations.length].org_type, country: organizations[i % organizations.length].country, confidence: 0.79 }],
     events: [{ title: events[i % events.length].title, category: events[i % events.length].category, start_date: events[i % events.length].start_date, end_date: "null", jurisdiction: events[i % events.length].jurisdiction, participants: [], outcomes: [], claims: [{ claim_text: `Claim ${i + 1}`, evidence_quote: `Quote for evidence ${i + 1}`, confidence: 0.83 }], confidence: 0.82 }],
+    fragility_assessment: {
+      primary_subject: {
+        person_name: people[i % people.length].full_name,
+        org_name: organizations[i % organizations.length].name,
+        role: i % 2 === 0 ? "Executive" : "Regulator",
+        confidence: 0.85,
+      },
+      intervention_type: (i % 3 === 0 ? "bailout" : i % 2 === 0 ? "policy" : "regulatory") as "bailout" | "policy" | "regulatory",
+      convexity_profile: (i % 2 === 0 ? "short_vol" : "unclear") as "short_vol" | "unclear",
+      downside_bearers: [
+        {
+          party: i % 2 === 0 ? "taxpayers" : "public",
+          loss_channel: i % 2 === 0 ? "absorbed losses after intervention" : "policy downside shifted to diffuse users",
+          confidence: 0.8,
+        },
+      ],
+      upside_beneficiaries: [
+        {
+          beneficiary_name: people[i % people.length].full_name,
+          beneficiary_type: "person",
+          gain_channel: i % 2 === 0 ? "bonus retention" : "career insulation",
+          confidence: 0.81,
+        },
+      ],
+      fragility_mechanisms: [
+        i % 3 === 0 ? "rubin_trade" : "fragilista",
+        i % 4 === 0 ? "iatrogenic_intervention" : "bailout_to_boardroom",
+      ],
+      monitoring_cues: [
+        "asymmetric upside with delayed public downside",
+        "recurring intervention language",
+      ],
+    },
     meta: { extraction_notes: "Seed extraction" },
   },
 }));
@@ -92,6 +125,12 @@ export const signals: Signal[] = people.flatMap((person, i) => {
     { signal_type: "taxpayer_cost_mentioned", value_numeric: i % 2 === 0 ? 1 : 0.5, evidence_id: evidence[(i + 2) % evidence.length].id },
     { signal_type: "moral_hazard_created", value_numeric: i % 4 === 0 ? 1 : 0.4, evidence_id: evidence[(i + 3) % evidence.length].id },
     { signal_type: "intervention_backfire_documented", value_numeric: i % 5 === 0 ? 1 : 0.3, evidence_id: evidence[(i + 4) % evidence.length].id },
+    { signal_type: "revolving_door_role_change", value_numeric: i % 4 === 0 ? 0.85 : 0.35, evidence_id: evidence[(i + 5) % evidence.length].id },
+    { signal_type: "regulatory_overlap", value_numeric: i % 3 === 0 ? 0.8 : 0.2, evidence_id: evidence[(i + 6) % evidence.length].id },
+    { signal_type: "repeated_interventions_same_failure", value_numeric: i % 5 === 0 ? 0.75 : 0.25, evidence_id: evidence[(i + 7) % evidence.length].id },
+    { signal_type: "public_harm_policy", value_numeric: i % 2 === 0 ? 0.8 : 0.3, evidence_id: evidence[(i + 8) % evidence.length].id },
+    { signal_type: "bailout_or_subsidy", value_numeric: i % 3 === 0 ? 0.9 : 0.2, evidence_id: evidence[(i + 9) % evidence.length].id },
+    { signal_type: "shareholder_loss_large", value_numeric: i % 4 === 0 ? 0.85 : 0.25, evidence_id: evidence[(i + 10) % evidence.length].id },
   ];
 
   return signalSet.map((signal, signalIndex) => ({

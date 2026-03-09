@@ -52,6 +52,35 @@ export const extractionOutputSchema = z.object({
       confidence: z.number().min(0).max(1),
     }),
   ),
+  fragility_assessment: z.object({
+    primary_subject: z.object({
+      person_name: nullableString,
+      org_name: nullableString,
+      role: nullableString,
+      confidence: z.number().min(0).max(1),
+    }),
+    intervention_type: z.enum(["policy", "bailout", "regulatory", "advisory", "corporate", "null"]),
+    convexity_profile: z.enum(["short_vol", "long_vol", "unclear", "null"]),
+    downside_bearers: z.array(
+      z.object({
+        party: z.enum(["taxpayers", "shareholders", "customers", "public", "employees", "other", "null"]),
+        loss_channel: nullableString,
+        confidence: z.number().min(0).max(1),
+      }),
+    ),
+    upside_beneficiaries: z.array(
+      z.object({
+        beneficiary_name: z.string(),
+        beneficiary_type: z.enum(["person", "org", "shareholder_group", "executive_group", "other"]),
+        gain_channel: nullableString,
+        confidence: z.number().min(0).max(1),
+      }),
+    ),
+    fragility_mechanisms: z.array(
+      z.enum(["rubin_trade", "fragilista", "iatrogenic_intervention", "bailout_to_boardroom", "revolving_door", "complexity_arbitrage"]),
+    ),
+    monitoring_cues: z.array(z.string()),
+  }),
   meta: z.object({ extraction_notes: nullableString }),
 });
 

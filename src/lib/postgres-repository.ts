@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { buildDiscovery, buildScores, rankDiscovery } from "./domain.js";
+import { buildDiscovery, buildEvidenceHeadlines, buildFragilitySummary, buildScores, rankDiscovery } from "./domain.js";
 import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
@@ -279,6 +279,11 @@ export class PostgresRepository implements Repository {
         scores: await this.loadScores(subjectType, id),
         discoveries: await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
         timeline: (await this.pool.query<Event>("SELECT id, title, category, summary, start_date::text, end_date::text, jurisdiction FROM events ORDER BY start_date DESC LIMIT 5")).rows,
+        fragility_summary: buildFragilitySummary(
+          await this.loadScores(subjectType, id),
+          await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
+        ),
+        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "person", subject_id: id })),
       };
     }
 
@@ -293,6 +298,11 @@ export class PostgresRepository implements Repository {
         scores: await this.loadScores(subjectType, id),
         discoveries: await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
         timeline: [],
+        fragility_summary: buildFragilitySummary(
+          await this.loadScores(subjectType, id),
+          await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
+        ),
+        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "org", subject_id: id })),
       };
     }
 
@@ -306,6 +316,11 @@ export class PostgresRepository implements Repository {
       scores: await this.loadScores(subjectType, id),
       discoveries: await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
       timeline: event.rows,
+      fragility_summary: buildFragilitySummary(
+        await this.loadScores(subjectType, id),
+        await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
+      ),
+      recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "event", subject_id: id })),
     };
   }
 

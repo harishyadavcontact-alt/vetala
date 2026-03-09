@@ -86,11 +86,13 @@ async function loadEvidenceDetail(id) {
   state.selectedEvidenceId = id;
   renderEvidenceList();
   const extraction = item.extractions[0];
+  const fragilityAssessment = extraction?.json_output?.fragility_assessment ?? { note: "No fragility assessment recorded yet." };
+
   nodes.evidenceDetail.innerHTML = `
     <div>
       <p class="eyebrow">Source</p>
       <h3>${item.title}</h3>
-      <p class="meta">${item.publisher} · <a href="${item.url}" target="_blank" rel="noreferrer">${item.url}</a></p>
+      <p class="meta">${item.publisher} | <a href="${item.url}" target="_blank" rel="noreferrer">${item.url}</a></p>
     </div>
     <div class="metric-grid">
       <div class="metric"><span class="small">Trust tier</span><strong>${item.trust_tier}</strong></div>
@@ -102,7 +104,11 @@ async function loadEvidenceDetail(id) {
       <button id="mark-reviewed">Mark reviewed</button>
     </div>
     <div>
-      <p class="eyebrow">Extraction</p>
+      <p class="eyebrow">Fragility assessment</p>
+      <pre>${JSON.stringify(fragilityAssessment, null, 2)}</pre>
+    </div>
+    <div>
+      <p class="eyebrow">Full extraction</p>
       <pre>${JSON.stringify(extraction?.json_output ?? { note: "No extraction recorded yet." }, null, 2)}</pre>
     </div>
   `;
@@ -128,6 +134,12 @@ async function loadEntityProfile(subjectType, subjectId) {
     profile.organization?.name ||
     profile.event?.title ||
     "Entity";
+  const topPatterns = profile.fragility_summary.top_patterns
+    .map((pattern) => tag(`${pattern.pattern_label} (${pattern.confidence.toFixed(2)})`, "warn"))
+    .join("");
+  const recentEvidence = profile.recent_evidence
+    .map((item) => `<li>${item.title} | ${item.publisher} | tier ${item.trust_tier}</li>`)
+    .join("");
 
   nodes.entityProfile.innerHTML = `
     <div>
@@ -136,15 +148,23 @@ async function loadEntityProfile(subjectType, subjectId) {
       <p class="meta">${profile.subject_type}</p>
     </div>
     <div class="metric-grid">
-      ${profile.scores
-        .map(
-          (score) => `<div class="metric"><span class="small">${score.score_type}</span><strong>${score.score_value}</strong></div>`,
-        )
-        .join("")}
+      <div class="metric"><span class="small">Skin in the game gap</span><strong>${profile.fragility_summary.skin_in_the_game_gap}</strong></div>
+      <div class="metric"><span class="small">Externalized loss</span><strong>${profile.fragility_summary.externalized_loss_risk}</strong></div>
+      <div class="metric"><span class="small">Iatrogenic risk</span><strong>${profile.fragility_summary.iatrogenic_risk}</strong></div>
+      <div class="metric"><span class="small">Fragility score</span><strong>${profile.fragility_summary.fragility_score}</strong></div>
     </div>
     <div>
-      <p class="eyebrow">Score explanations</p>
-      <pre>${JSON.stringify(profile.scores[0]?.explanation_json ?? {}, null, 2)}</pre>
+      <p class="eyebrow">Current thesis</p>
+      <p class="meta">${profile.fragility_summary.thesis}</p>
+      <div class="tag-row">${topPatterns || tag("No detector has fired yet")}</div>
+    </div>
+    <div>
+      <p class="eyebrow">Watch evidence</p>
+      <ul>${recentEvidence || "<li>No linked evidence yet.</li>"}</ul>
+    </div>
+    <div>
+      <p class="eyebrow">Scores and explanations</p>
+      <pre>${JSON.stringify(profile.scores, null, 2)}</pre>
     </div>
   `;
 }
@@ -158,7 +178,7 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
     <div>
       <p class="eyebrow">Selected discovery</p>
       <h3>${discovery.pattern_label}</h3>
-      <p class="meta">${discovery.pattern_type} · confidence ${discovery.confidence.toFixed(2)}</p>
+      <p class="meta">${discovery.pattern_type} | confidence ${discovery.confidence.toFixed(2)}</p>
     </div>
     <div class="metric-grid">
       <div class="metric"><span class="small">Evidence count</span><strong>${discovery.summary.evidence_count}</strong></div>

@@ -143,6 +143,28 @@ export interface DiscoverySummary {
   source_diversity_score: number;
 }
 
+export interface FragilitySummary {
+  skin_in_the_game_gap: number;
+  externalized_loss_risk: number;
+  iatrogenic_risk: number;
+  fragility_score: number;
+  top_patterns: Array<{
+    pattern_type: PatternType;
+    pattern_label: string;
+    severity_score: number;
+    confidence: number;
+  }>;
+  thesis: string;
+}
+
+export interface EvidenceHeadline {
+  id: string;
+  title: string;
+  publisher: string;
+  trust_tier: number;
+  accessed_at: string;
+}
+
 export interface RankedDiscovery extends Discovery {
   evidence: Evidence[];
   summary: DiscoverySummary;
@@ -164,6 +186,8 @@ export interface EntityProfile {
   scores: Score[];
   discoveries: RankedDiscovery[];
   timeline: Event[];
+  fragility_summary: FragilitySummary;
+  recent_evidence: EvidenceHeadline[];
 }
 
 export interface SearchResults {
