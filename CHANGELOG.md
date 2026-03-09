@@ -36,6 +36,8 @@
   - Playwright E2E
   - optional Postgres integration tests
   - GitHub CI, security, and repair workflows
+- semantic seed subjects, institutions, and events aligned to the fragility thesis
+- discovery subject labels and intervention timelines in the UI
 
 ## Changed
 

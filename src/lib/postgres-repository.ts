@@ -368,7 +368,11 @@ export class PostgresRepository implements Repository {
       this.loadEvidenceForIds(evidenceIds),
       this.loadUserActions(userId),
     ]);
-    return discoveries.map((discovery) => rankDiscovery(discovery, evidence, actions, userId));
+    const labels = await this.loadSubjectLabels(discoveries);
+    return discoveries.map((discovery) => ({
+      ...rankDiscovery(discovery, evidence, actions, userId),
+      subject_label: labels.get(`${discovery.subject_type}:${discovery.subject_id}`) ?? discovery.subject_id,
+    }));
   }
 
   private normalizeDiscovery(row: Discovery): Discovery {
@@ -435,5 +439,35 @@ export class PostgresRepository implements Repository {
       }
       return sum + (eventRecord as { claims: unknown[] }).claims.length;
     }, 0);
+  }
+
+  private async loadSubjectLabels(discoveries: Discovery[]): Promise<Map<string, string>> {
+    const labels = new Map<string, string>();
+    const personIds = Array.from(new Set(discoveries.filter((item) => item.subject_type === "person").map((item) => item.subject_id)));
+    const orgIds = Array.from(new Set(discoveries.filter((item) => item.subject_type === "org").map((item) => item.subject_id)));
+    const eventIds = Array.from(new Set(discoveries.filter((item) => item.subject_type === "event").map((item) => item.subject_id)));
+
+    if (personIds.length > 0) {
+      const people = await this.pool.query<{ id: string; full_name: string }>("SELECT id, full_name FROM people WHERE id = ANY($1::uuid[])", [personIds]);
+      for (const row of people.rows) {
+        labels.set(`person:${row.id}`, row.full_name);
+      }
+    }
+
+    if (orgIds.length > 0) {
+      const orgs = await this.pool.query<{ id: string; name: string }>("SELECT id, name FROM organizations WHERE id = ANY($1::uuid[])", [orgIds]);
+      for (const row of orgs.rows) {
+        labels.set(`org:${row.id}`, row.name);
+      }
+    }
+
+    if (eventIds.length > 0) {
+      const events = await this.pool.query<{ id: string; title: string }>("SELECT id, title FROM events WHERE id = ANY($1::uuid[])", [eventIds]);
+      for (const row of events.rows) {
+        labels.set(`event:${row.id}`, row.title);
+      }
+    }
+
+    return labels;
   }
 }

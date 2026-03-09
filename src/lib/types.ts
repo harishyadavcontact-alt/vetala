@@ -168,6 +168,7 @@ export interface EvidenceHeadline {
 export interface RankedDiscovery extends Discovery {
   evidence: Evidence[];
   summary: DiscoverySummary;
+  subject_label?: string;
 }
 
 export interface EvidenceDetail extends Evidence {

@@ -74,7 +74,7 @@ describe("workflow api", () => {
   });
 
   it("recomputes signals for a subject and returns score and discovery payloads", async () => {
-    const people = await request(app).get("/api/v1/search?q=Person 1&type=people");
+    const people = await request(app).get("/api/v1/search?q=&type=people");
     const subjectId = people.body.people[0].id;
 
     const response = await request(app).post("/api/v1/signals/recompute").send({
@@ -90,7 +90,7 @@ describe("workflow api", () => {
   });
 
   it("returns fragility summaries on entity profiles", async () => {
-    const people = await request(app).get("/api/v1/search?q=Person 1&type=people");
+    const people = await request(app).get("/api/v1/search?q=&type=people");
     const subjectId = people.body.people[0].id;
 
     const response = await request(app).get(`/api/v1/people/${subjectId}`);

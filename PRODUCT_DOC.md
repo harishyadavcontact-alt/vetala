@@ -47,13 +47,13 @@ Primary surfaces:
   - lists evidence cards with trust tier, review state, extraction count, claim count, and duplicate count
   - supports manual ingest through the sidebar form
 - Discovery Queue
-  - lists ranked discoveries with severity, confidence, evidence count, best trust tier, and reviewed evidence count
+  - lists ranked discoveries with severity, confidence, subject label, evidence count, best trust tier, and reviewed evidence count
   - supports a min-confidence slider filter
 - Evidence Reader
   - shows source metadata and the first extraction payload
   - exposes `Mark reviewed`
 - Entity Profile
-  - shows subject identity, fragility summary metrics, top detector patterns, recent evidence, and full score payloads
+  - shows subject identity, fragility summary metrics, top detector patterns, recent evidence, intervention timeline, and full score payloads
 - Capture Workspace
   - shows discovery details and explanation JSON
   - allows capture and share after selection

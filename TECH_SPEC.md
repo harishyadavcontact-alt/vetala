@@ -337,6 +337,8 @@ Important implications:
 - there is no normalized cache
 - reload behavior is fetch-and-rerender
 - user feedback is inline text, not toast/notification infrastructure
+- discovery cards now rely on `subject_label` when the repository provides it
+- entity profiles render `timeline` and `recent_evidence` directly from API payloads
 
 ## State Management Implications
 

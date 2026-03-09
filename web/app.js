@@ -69,7 +69,7 @@ function renderDiscoveryList() {
           <strong>${item.pattern_label}</strong>
           ${tag(`sev ${item.severity_score}`)}
         </div>
-        <p class="meta">${item.pattern_type} on ${item.subject_id.slice(0, 8)}</p>
+        <p class="meta">${item.subject_label ?? item.subject_id.slice(0, 8)} | ${item.pattern_type}</p>
         <div class="tag-row">
           ${tag(`conf ${item.confidence.toFixed(2)}`)}
           ${tag(`${item.summary.evidence_count} evidence`)}
@@ -140,6 +140,9 @@ async function loadEntityProfile(subjectType, subjectId) {
   const recentEvidence = profile.recent_evidence
     .map((item) => `<li>${item.title} | ${item.publisher} | tier ${item.trust_tier}</li>`)
     .join("");
+  const timeline = profile.timeline
+    .map((item) => `<li>${item.start_date ?? "undated"} | ${item.title}</li>`)
+    .join("");
 
   nodes.entityProfile.innerHTML = `
     <div>
@@ -161,6 +164,10 @@ async function loadEntityProfile(subjectType, subjectId) {
     <div>
       <p class="eyebrow">Watch evidence</p>
       <ul>${recentEvidence || "<li>No linked evidence yet.</li>"}</ul>
+    </div>
+    <div>
+      <p class="eyebrow">Intervention timeline</p>
+      <ul>${timeline || "<li>No tracked timeline yet.</li>"}</ul>
     </div>
     <div>
       <p class="eyebrow">Scores and explanations</p>

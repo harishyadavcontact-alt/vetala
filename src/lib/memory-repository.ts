@@ -168,13 +168,21 @@ export class MemoryRepository implements Repository {
         }
         return true;
       })
-      .map((discovery) => rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId))
+      .map((discovery) => ({
+        ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+        subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
+      }))
       .sort((a, b) => b.severity_score - a.severity_score || b.detected_at.localeCompare(a.detected_at));
   }
 
   async getDiscoveryById(id: string, userId: string) {
     const discovery = this.state.discoveries.find((item) => item.id === id);
-    return discovery ? rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId) : null;
+    return discovery
+      ? {
+          ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+          subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
+        }
+      : null;
   }
 
   async captureDiscovery(userId: string, input: CaptureInput): Promise<Capture> {
@@ -300,5 +308,15 @@ export class MemoryRepository implements Repository {
         .filter((action) => action.user_id === userId && action.action_type === "viewed_evidence" && action.entity_type === "evidence")
         .map((action) => action.entity_id),
     );
+  }
+
+  private subjectLabel(subjectType: SubjectType, subjectId: string): string {
+    if (subjectType === "person") {
+      return this.state.people.find((person) => person.id === subjectId)?.full_name ?? subjectId;
+    }
+    if (subjectType === "org") {
+      return this.state.organizations.find((org) => org.id === subjectId)?.name ?? subjectId;
+    }
+    return this.state.events.find((event) => event.id === subjectId)?.title ?? subjectId;
   }
 }

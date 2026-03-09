@@ -47,7 +47,7 @@ describe("memory repository", () => {
   it("builds fragility summaries on entity profiles", async () => {
     const repository = new MemoryRepository(createFixtureState());
     const user = await repository.getDefaultUser();
-    const results = await repository.search("Person 1", "people");
+    const results = await repository.search("", "people");
     const profile = await repository.getEntityProfile("person", results.people[0].id, user.id);
 
     expect(profile?.fragility_summary.fragility_score).toBeGreaterThanOrEqual(0);

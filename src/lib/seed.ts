@@ -30,26 +30,75 @@ export const demoUser: User = {
   created_at: new Date(now - 30 * 86400000).toISOString(),
 };
 
-export const people: Person[] = Array.from({ length: 20 }, (_, i) => ({
+const personSeeds = [
+  ["Adrian Vale", "Central banker with repeated public downside after stability messaging."],
+  ["Mira Sethi", "Bank chair insulated from tail risk through compensation and tenure."],
+  ["Jonah Pryce", "Regulator turned board adviser after emergency market interventions."],
+  ["Elena Ward", "Policy architect whose downside lands on households and taxpayers."],
+  ["Marcus Flint", "Crisis manager with recurring bailout fingerprints."],
+  ["Leila Mercer", "Treasury official linked to subsidy-heavy rescue structures."],
+  ["Noah Keane", "Exchange executive with fee upside and diffuse systemic downside."],
+  ["Sara Voss", "Public health adviser associated with repeated intervention whiplash."],
+  ["Elias Hart", "Chief risk officer who suppresses visible volatility until rupture."],
+  ["Talia Rowan", "Cabinet-level allocator with low personal downside and high public exposure."],
+  ["Victor Shaw", "Think tank operator promoting complexity-heavy policy cover."],
+  ["Nina Doyle", "Energy regulator tied to subsidy loops and lagged public costs."],
+  ["Omar Finch", "Board member exiting before balance-sheet fragility reprices."],
+  ["Priya Lorne", "Infrastructure minister linked to headline upside and socialized losses."],
+  ["Caleb Stroud", "Insurance executive benefiting from opaque catastrophe transfer."],
+  ["Maya Quinn", "Committee chair with repeated emergency-policy reversals."],
+  ["Rohan Price", "Sovereign fund manager rewarded for carry with hidden convexity."],
+  ["Iris Cole", "Credit strategist whose policy calls backfire under stress."],
+  ["Daniel Rhys", "Platform operator externalizing operational losses to counterparties."],
+  ["Sana Brooks", "Macro adviser with strong narrative control and weak downside exposure."],
+] as const;
+
+export const people: Person[] = personSeeds.map(([full_name, description], i) => ({
   id: uuid(i + 1),
-  full_name: `Person ${i + 1}`,
+  full_name,
   primary_country: i % 2 === 0 ? "US" : "UK",
-  description: `Profile for Person ${i + 1}`,
+  description,
 }));
 
-export const organizations: Organization[] = Array.from({ length: 10 }, (_, i) => ({
+const organizationSeeds = [
+  ["Helix Capital", "corp"],
+  ["Northbridge Bank", "corp"],
+  ["Public Stability Board", "agency"],
+  ["Meridian Exchange", "corp"],
+  ["Civic Risk Office", "agency"],
+  ["Atlas Subsidy Forum", "thinktank"],
+  ["Open Ledger Watch", "ngo"],
+  ["Harbor Insurance Group", "corp"],
+  ["National Energy Authority", "agency"],
+  ["Crown Policy Institute", "thinktank"],
+] as const;
+
+export const organizations: Organization[] = organizationSeeds.map(([name, org_type], i) => ({
   id: uuid(100 + i + 1),
-  name: `Organization ${i + 1}`,
-  org_type: ["agency", "corp", "ngo", "party", "thinktank", "other"][i % 6] as Organization["org_type"],
+  name,
+  org_type,
   country: i % 2 === 0 ? "US" : "UK",
-  description: `Organization ${i + 1} description`,
+  description: `${name} is tracked for fragility transfer, intervention incentives, and downstream public harm.`,
 }));
+
+const eventSeeds = [
+  "Emergency liquidity backstop expanded after stress warning",
+  "Advisory official joins rescued lender board",
+  "Stress test waiver granted ahead of balance-sheet losses",
+  "Subsidy package shifts downside to taxpayers",
+  "Public statement downplays tail-risk exposure",
+  "Fee pool expands while customer losses mount",
+  "Intervention repeated after prior documented failure",
+  "Capital buffer softened during volatility suppression push",
+  "Post-crisis bonus pool retained despite public losses",
+  "Committee vote privileges short-term calm over long-term resilience",
+];
 
 export const events: Event[] = Array.from({ length: 30 }, (_, i) => ({
   id: uuid(200 + i + 1),
-  title: `Event ${i + 1}`,
+  title: eventSeeds[i % eventSeeds.length],
   category: ["policy", "vote", "reg_action", "corp_action", "advisory", "forecast", "public_statement", "other"][i % 8] as Event["category"],
-  summary: `Sourced event summary ${i + 1}`,
+  summary: `Tracked event linking intervention, asymmetry, and potential downside transfer case ${i + 1}.`,
   start_date: new Date(now - i * 86400000 * 3).toISOString().slice(0, 10),
   end_date: null,
   jurisdiction: i % 2 === 0 ? "US" : "UK",
