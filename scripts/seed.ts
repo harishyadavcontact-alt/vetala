@@ -68,10 +68,23 @@ async function main() {
 
     for (const extraction of extractions) {
       await client.query(
-        `INSERT INTO extractions (id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `INSERT INTO extractions (id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, review_status, review_note, reviewed_at, reviewed_by, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (id) DO NOTHING`,
-        [extraction.id, extraction.evidence_id, extraction.extractor_version, extraction.model_name, extraction.schema_version, JSON.stringify(extraction.json_output), extraction.confidence, extraction.created_at],
+        [
+          extraction.id,
+          extraction.evidence_id,
+          extraction.extractor_version,
+          extraction.model_name,
+          extraction.schema_version,
+          JSON.stringify(extraction.json_output),
+          extraction.confidence,
+          extraction.review_status,
+          extraction.review_note,
+          extraction.reviewed_at,
+          extraction.reviewed_by,
+          extraction.created_at,
+        ],
       );
     }
 

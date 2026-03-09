@@ -92,6 +92,10 @@ CREATE TABLE extractions (
   schema_version TEXT NOT NULL,
   json_output JSONB NOT NULL,
   confidence NUMERIC NOT NULL CHECK (confidence BETWEEN 0 AND 1),
+  review_status TEXT NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending','reviewed','challenged')),
+  review_note TEXT,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

@@ -23,14 +23,21 @@ describe("scoring", () => {
       persistence_proxy: 0.5,
       evidence_tiers: [2, 3],
       evidence_ids: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+      reviewed_evidence_ids: ["00000000-0000-4000-8000-000000000001"],
+      challenged_evidence_ids: [],
+      signal_inputs: [{ signal_type: "authority_level_high", value_numeric: 0.75 }],
       avg_extraction_confidence: 0.9,
       source_diversity_score: 0.8,
       evidence_quality_score: 0.7,
+      reviewed_extraction_ratio: 1,
     });
 
     expect(result?.pattern_type).toBe("BOB_RUBIN_TRADE");
     expect(result?.severity_score).toBeGreaterThan(0);
     expect(result?.confidence).toBe(0.7);
+    expect(result?.explanation_json.confidence_calc).toMatchObject({
+      capped_by: 1,
+    });
   });
 
   it("detects revolving door patterns", () => {
@@ -41,6 +48,10 @@ describe("scoring", () => {
       evidence_tiers: [1, 3],
       evidence_ids: ["a", "b"],
       source_diversity_score: 0.8,
+      reviewed_evidence_ids: ["a"],
+      challenged_evidence_ids: [],
+      signal_inputs: [{ signal_type: "revolving_door_role_change", value_numeric: 0.8 }],
+      reviewed_extraction_ratio: 0.5,
     });
 
     expect(result?.pattern_type).toBe("REVOLVING_DOOR");
@@ -55,6 +66,10 @@ describe("scoring", () => {
       evidence_tiers: [2, 4],
       evidence_ids: ["a", "b"],
       avg_extraction_confidence: 0.81,
+      reviewed_evidence_ids: ["a"],
+      challenged_evidence_ids: [],
+      signal_inputs: [{ signal_type: "intervention_backfire_documented", value_numeric: 0.8 }],
+      reviewed_extraction_ratio: 0.5,
     });
 
     expect(result?.pattern_type).toBe("IATROGENIC_INTERVENTION");
@@ -69,9 +84,36 @@ describe("scoring", () => {
       evidence_tiers: [1, 2],
       evidence_ids: ["a", "b"],
       source_diversity_score: 0.76,
+      reviewed_evidence_ids: ["a"],
+      challenged_evidence_ids: [],
+      signal_inputs: [{ signal_type: "bailout_or_subsidy", value_numeric: 0.85 }],
+      reviewed_extraction_ratio: 0.5,
     });
 
     expect(result?.pattern_type).toBe("BAILOUT_TO_BOARDROOM");
     expect(result?.confidence).toBeGreaterThan(0);
+  });
+
+  it("caps detector confidence when extraction review is absent", () => {
+    const result = detectBobRubinTrade({
+      authority_level_proxy: 0.8,
+      externalized_loss_proxy: 0.8,
+      sitg_gap_proxy: 0.8,
+      persistence_proxy: 0.7,
+      evidence_tiers: [1, 2],
+      evidence_ids: ["a", "b"],
+      reviewed_evidence_ids: [],
+      challenged_evidence_ids: [],
+      signal_inputs: [{ signal_type: "authority_level_high", value_numeric: 0.8 }],
+      avg_extraction_confidence: 0.95,
+      source_diversity_score: 0.9,
+      evidence_quality_score: 0.9,
+      reviewed_extraction_ratio: 0,
+    });
+
+    expect(result?.confidence).toBe(0.58);
+    expect(result?.explanation_json.confidence_calc).toMatchObject({
+      capped_by: 0.58,
+    });
   });
 });

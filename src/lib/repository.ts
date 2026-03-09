@@ -54,6 +54,12 @@ export interface CreateExtractionInput {
   confidence: number;
 }
 
+export interface ReviewExtractionInput {
+  review_status: Extraction["review_status"];
+  review_note?: string | null;
+  reviewed_by: string;
+}
+
 export interface CreateUserActionInput {
   user_id: string;
   action_type: UserAction["action_type"];
@@ -80,6 +86,7 @@ export interface Repository {
   getEvidenceById(id: string, userId: string): Promise<EvidenceDetail | null>;
   createEvidence(input: CreateEvidenceInput): Promise<{ created: boolean; evidence: Evidence }>;
   createExtraction(input: CreateExtractionInput): Promise<Extraction>;
+  reviewExtraction(id: string, input: ReviewExtractionInput): Promise<Extraction>;
   createUserAction(input: CreateUserActionInput): Promise<UserAction>;
   listDiscoveries(userId: string, filters?: DiscoveryFilters): Promise<RankedDiscovery[]>;
   getDiscoveryById(id: string, userId: string): Promise<RankedDiscovery | null>;

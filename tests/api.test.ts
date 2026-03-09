@@ -127,4 +127,31 @@ describe("workflow api", () => {
     expect(Array.isArray(leaderboards.body.patterns)).toBe(true);
     expect(leaderboards.body.subjects.length).toBeGreaterThan(0);
   });
+
+  it("reviews an extraction and returns review metadata on evidence detail", async () => {
+    const evidence = await request(app).get("/api/v1/evidence");
+    const detail = await request(app).get(`/api/v1/evidence/${evidence.body[0].id}`);
+    const target = detail.body.extractions.find((extraction: { review_status: string }) => extraction.review_status === "pending") ?? detail.body.extractions[0];
+
+    const review = await request(app).post(`/api/v1/extractions/${target.id}/review`).send({
+      review_status: "reviewed",
+      review_note: "API test review.",
+    });
+    expect(review.status).toBe(200);
+    expect(review.body.review_status).toBe("reviewed");
+
+    const updated = await request(app).get(`/api/v1/evidence/${evidence.body[0].id}`);
+    expect(updated.body.extractions.some((extraction: { id: string; review_status: string; review_note: string }) => extraction.id === target.id && extraction.review_status === "reviewed" && extraction.review_note === "API test review.")).toBe(true);
+  });
+
+  it("exposes cautious discovery framing when extraction review is weak", async () => {
+    const response = await request(app).get("/api/v1/discoveries?min_confidence=0.5");
+    expect(response.status).toBe(200);
+    expect(response.body[0]).toHaveProperty("review_status");
+    expect(response.body[0].summary).toMatchObject({
+      extraction_count: expect.any(Number),
+      reviewed_extraction_count: expect.any(Number),
+      extraction_review_ratio: expect.any(Number),
+    });
+  });
 });

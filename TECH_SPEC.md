@@ -100,6 +100,10 @@ Fields:
 - `schema_version`
 - `json_output`
 - `confidence`
+- `review_status`
+- `review_note`
+- `reviewed_at`
+- `reviewed_by`
 
 `json_output` is validated against `extractionOutputSchema` in `src/lib/schemas.ts`.
 
@@ -143,6 +147,11 @@ Derived summary fields on ranked responses:
 - `best_trust_tier`
 - `reviewed_evidence_count`
 - `source_diversity_score`
+- `extraction_count`
+- `reviewed_extraction_count`
+- `challenged_extraction_count`
+- `extraction_review_ratio`
+- `review_status`
 
 Entity profile-only derived fields:
 
@@ -203,6 +212,11 @@ All routes live under `/api/v1`.
 - `POST /extractions`
   - body validated by `createExtractionSchema`
   - returns `Extraction`
+
+- `POST /extractions/:id/review`
+  - body validated by `reviewExtractionSchema`
+  - returns updated `Extraction`
+  - writes `review_status`, `review_note`, `reviewed_at`, `reviewed_by`
 
 ### User Actions
 
@@ -302,19 +316,26 @@ Implemented detectors:
 - `detectIatrogenicIntervention`
 - `detectBailoutToBoardroom`
 
-Thresholds:
+Each detector explanation now includes:
 
-- `authority_level_proxy >= 0.7`
-- `externalized_loss_proxy >= 0.6`
-- `sitg_gap_proxy >= 0.6`
-- at least one evidence item with `trust_tier <= 2`
-- at least two evidence IDs
+- threshold inputs
+- explicit threshold values
+- signal inputs used
+- reviewed and challenged evidence IDs
+- confidence cap reasoning
 
-Confidence is the minimum of:
+Confidence is now cautious by design. It is the minimum of:
 
-- `avg_extraction_confidence`
-- `source_diversity_score`
-- `evidence_quality_score`
+- extraction confidence where applicable
+- source diversity where applicable
+- evidence quality cap
+- review cap derived from `reviewed_extraction_ratio`
+
+Review cap behavior:
+
+- strong review coverage keeps confidence close to the raw detector ceiling
+- partial review coverage caps confidence below the raw detector signal
+- no reviewed extraction support leaves the item visible as a detector hit only
 
 Reality constraint:
 
@@ -348,7 +369,9 @@ Important implications:
 - reload behavior is fetch-and-rerender
 - user feedback is inline text, not toast/notification infrastructure
 - discovery cards now rely on `subject_label` when the repository provides it
+- discovery cards also rely on `review_status` and extraction-review summary fields
 - entity profiles render `timeline` and `recent_evidence` directly from API payloads
+- evidence detail renders all extractions, not just the first extraction
 - watchlist and leaderboard panels refresh from server state inside the same page-local fetch loop
 
 ## State Management Implications
@@ -389,6 +412,7 @@ Browser E2E:
 - covers:
   - ingest evidence
   - blocked capture before review
+  - extraction review mutation
   - review evidence
   - successful capture
   - share token generation
@@ -414,9 +438,9 @@ Validation order:
 ## Open Questions
 
 - What should production identity and authorization look like beyond `x-user-id`?
-- Should evidence review require all linked evidence or only one linked evidence before capture?
+- Should capture eventually require reviewed extractions instead of only viewed evidence?
 - Should recompute replace prior discoveries or version them historically?
-- How should extraction review evolve beyond raw JSON display?
+- Should extraction review become append-only review events instead of mutable columns on `extractions`?
 - Which of the placeholder pattern types are intended to become real detectors next?
 - Should source diversity remain a simple unique-publisher ratio or become a stronger provenance metric?
 - Is in-memory mode meant to survive long-term as a demo mode, or should it become test-only?

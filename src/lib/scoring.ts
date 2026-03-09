@@ -5,6 +5,27 @@ export interface SignalInput {
   value_numeric?: number;
 }
 
+export interface DetectorSignalInput {
+  signal_type: string;
+  value_numeric: number;
+}
+
+export interface DetectorEvidenceInput {
+  evidence_ids: string[];
+  evidence_tiers: number[];
+  reviewed_evidence_ids: string[];
+  challenged_evidence_ids: string[];
+  signal_inputs: DetectorSignalInput[];
+}
+
+interface DetectorConfidenceInputs {
+  avg_extraction_confidence?: number;
+  source_diversity_score?: number;
+  evidence_quality_score?: number;
+  reviewed_extraction_ratio: number;
+  review_cap: number;
+}
+
 const clamp100 = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
 
 export function computeScoreFromSignals(scoreType: "SITG" | "ELI" | "FCS" | "II", signals: SignalInput[]): number {
@@ -33,8 +54,8 @@ export function computeScoreFromSignals(scoreType: "SITG" | "ELI" | "FCS" | "II"
   };
 
   const raw = signals
-    .filter((s) => allowed[scoreType].includes(s.signal_type))
-    .reduce((acc, s) => acc + (weights[s.signal_type] ?? 0) * (s.value_numeric ?? 1), 0);
+    .filter((signal) => allowed[scoreType].includes(signal.signal_type))
+    .reduce((sum, signal) => sum + (weights[signal.signal_type] ?? 0) * (signal.value_numeric ?? 1), 0);
 
   return clamp100(raw);
 }
@@ -43,16 +64,60 @@ export function computeFs(sitg: number, eli: number, fcs: number, ii: number, pe
   return clamp100(0.3 * sitg + 0.3 * eli + 0.25 * fcs + 0.15 * ii + Math.min(10, persistenceBonus));
 }
 
-export interface BobRubinInputs {
+function confidenceCapReason(reviewedExtractionRatio: number): string {
+  if (reviewedExtractionRatio >= 0.67) {
+    return "Review coverage is strong enough that source quality, not analyst caution, sets the ceiling.";
+  }
+  if (reviewedExtractionRatio > 0) {
+    return "Only part of the extraction set has been reviewed, so confidence is capped below the raw detector signal.";
+  }
+  return "No reviewed extraction supports this detector yet, so confidence stays in detector-hit territory only.";
+}
+
+function buildConfidenceCalc(input: DetectorConfidenceInputs) {
+  const components = [
+    input.avg_extraction_confidence,
+    input.source_diversity_score,
+    input.evidence_quality_score,
+    input.review_cap,
+  ].filter((value): value is number => typeof value === "number");
+  const confidence = Math.min(...components);
+
+  return {
+    confidence,
+    explanation: {
+      inputs: {
+        avg_extraction_confidence: input.avg_extraction_confidence ?? null,
+        source_diversity_score: input.source_diversity_score ?? null,
+        evidence_quality_score: input.evidence_quality_score ?? null,
+        reviewed_extraction_ratio: input.reviewed_extraction_ratio,
+        review_cap: input.review_cap,
+      },
+      confidence,
+      capped_by: input.review_cap,
+      cap_reason: confidenceCapReason(input.reviewed_extraction_ratio),
+    },
+  };
+}
+
+function buildDetectorEvidence(input: DetectorEvidenceInput) {
+  return {
+    evidence_ids: input.evidence_ids,
+    reviewed_evidence_ids: input.reviewed_evidence_ids,
+    challenged_evidence_ids: input.challenged_evidence_ids,
+    signals_used: input.signal_inputs,
+  };
+}
+
+export interface BobRubinInputs extends DetectorEvidenceInput {
   authority_level_proxy: number;
   externalized_loss_proxy: number;
   sitg_gap_proxy: number;
   persistence_proxy: number;
-  evidence_tiers: number[];
-  evidence_ids: string[];
   avg_extraction_confidence: number;
   source_diversity_score: number;
   evidence_quality_score: number;
+  reviewed_extraction_ratio: number;
 }
 
 export function detectBobRubinTrade(input: BobRubinInputs): null | {
@@ -83,17 +148,20 @@ export function detectBobRubinTrade(input: BobRubinInputs): null | {
         100,
     ),
   );
-  const confidence = Math.min(
-    input.avg_extraction_confidence,
-    input.source_diversity_score,
-    input.evidence_quality_score,
-  );
+  const confidenceCalc = buildConfidenceCalc({
+    avg_extraction_confidence: input.avg_extraction_confidence,
+    source_diversity_score: input.source_diversity_score,
+    evidence_quality_score: input.evidence_quality_score,
+    reviewed_extraction_ratio: input.reviewed_extraction_ratio,
+    review_cap: input.reviewed_extraction_ratio >= 0.67 ? 1 : input.reviewed_extraction_ratio > 0 ? 0.72 : 0.58,
+  });
 
   return {
     pattern_type: "BOB_RUBIN_TRADE",
     severity_score: severityScore,
-    confidence,
+    confidence: confidenceCalc.confidence,
     explanation_json: {
+      detector_version: "bob_rubin_trade_v1",
       pattern_type: "BOB_RUBIN_TRADE",
       pattern_label: "Rubin trade detected",
       triggered_rules: [
@@ -112,7 +180,7 @@ export function detectBobRubinTrade(input: BobRubinInputs): null | {
             externalized_loss_proxy: 0.6,
             sitg_gap_proxy: 0.6,
           },
-          evidence_ids: input.evidence_ids,
+          detector_inputs: buildDetectorEvidence(input),
         },
       ],
       severity_calc: {
@@ -126,25 +194,17 @@ export function detectBobRubinTrade(input: BobRubinInputs): null | {
         },
         severity_score: severityScore,
       },
-      confidence_calc: {
-        inputs: {
-          avg_extraction_confidence: input.avg_extraction_confidence,
-          source_diversity_score: input.source_diversity_score,
-          evidence_quality_score: input.evidence_quality_score,
-        },
-        confidence,
-      },
+      confidence_calc: confidenceCalc.explanation,
     },
   };
 }
 
-export interface RevolvingDoorInputs {
+export interface RevolvingDoorInputs extends DetectorEvidenceInput {
   authority_level_proxy: number;
   role_switch_proxy: number;
   regulatory_overlap_proxy: number;
-  evidence_tiers: number[];
-  evidence_ids: string[];
   source_diversity_score: number;
+  reviewed_extraction_ratio: number;
 }
 
 export function detectRevolvingDoor(input: RevolvingDoorInputs): null | {
@@ -167,12 +227,17 @@ export function detectRevolvingDoor(input: RevolvingDoorInputs): null | {
   const severityScore = clamp100(
     Math.round((0.4 * input.role_switch_proxy + 0.35 * input.regulatory_overlap_proxy + 0.25 * input.authority_level_proxy) * 100),
   );
-  const confidence = Math.min(input.source_diversity_score, input.evidence_tiers.some((tier) => tier === 1) ? 0.85 : 0.7);
+  const confidenceCalc = buildConfidenceCalc({
+    source_diversity_score: input.source_diversity_score,
+    evidence_quality_score: input.evidence_tiers.some((tier) => tier === 1) ? 0.85 : 0.7,
+    reviewed_extraction_ratio: input.reviewed_extraction_ratio,
+    review_cap: input.reviewed_extraction_ratio >= 0.67 ? 0.85 : input.reviewed_extraction_ratio > 0 ? 0.68 : 0.52,
+  });
 
   return {
     pattern_type: "REVOLVING_DOOR",
     severity_score: severityScore,
-    confidence,
+    confidence: confidenceCalc.confidence,
     explanation_json: {
       detector_version: "revolving_door_v1",
       pattern_type: "REVOLVING_DOOR",
@@ -182,18 +247,23 @@ export function detectRevolvingDoor(input: RevolvingDoorInputs): null | {
         role_switch_proxy: 0.6,
         regulatory_overlap_proxy: 0.5,
       },
-      inputs: input,
+      inputs: {
+        authority_level_proxy: input.authority_level_proxy,
+        role_switch_proxy: input.role_switch_proxy,
+        regulatory_overlap_proxy: input.regulatory_overlap_proxy,
+      },
+      detector_inputs: buildDetectorEvidence(input),
+      confidence_calc: confidenceCalc.explanation,
     },
   };
 }
 
-export interface IatrogenicInterventionInputs {
+export interface IatrogenicInterventionInputs extends DetectorEvidenceInput {
   intervention_backfire_proxy: number;
   repeated_failure_proxy: number;
   public_harm_proxy: number;
-  evidence_tiers: number[];
-  evidence_ids: string[];
   avg_extraction_confidence: number;
+  reviewed_extraction_ratio: number;
 }
 
 export function detectIatrogenicIntervention(input: IatrogenicInterventionInputs): null | {
@@ -215,12 +285,17 @@ export function detectIatrogenicIntervention(input: IatrogenicInterventionInputs
   const severityScore = clamp100(
     Math.round((0.45 * input.intervention_backfire_proxy + 0.3 * input.public_harm_proxy + 0.25 * input.repeated_failure_proxy) * 100),
   );
-  const confidence = Math.min(input.avg_extraction_confidence, input.repeated_failure_proxy >= 0.6 ? 0.85 : 0.72);
+  const confidenceCalc = buildConfidenceCalc({
+    avg_extraction_confidence: input.avg_extraction_confidence,
+    evidence_quality_score: input.repeated_failure_proxy >= 0.6 ? 0.85 : 0.72,
+    reviewed_extraction_ratio: input.reviewed_extraction_ratio,
+    review_cap: input.reviewed_extraction_ratio >= 0.67 ? 0.85 : input.reviewed_extraction_ratio > 0 ? 0.7 : 0.55,
+  });
 
   return {
     pattern_type: "IATROGENIC_INTERVENTION",
     severity_score: severityScore,
-    confidence,
+    confidence: confidenceCalc.confidence,
     explanation_json: {
       detector_version: "iatrogenic_intervention_v1",
       pattern_type: "IATROGENIC_INTERVENTION",
@@ -229,18 +304,23 @@ export function detectIatrogenicIntervention(input: IatrogenicInterventionInputs
         intervention_backfire_proxy: 0.6,
         public_harm_proxy: 0.5,
       },
-      inputs: input,
+      inputs: {
+        intervention_backfire_proxy: input.intervention_backfire_proxy,
+        repeated_failure_proxy: input.repeated_failure_proxy,
+        public_harm_proxy: input.public_harm_proxy,
+      },
+      detector_inputs: buildDetectorEvidence(input),
+      confidence_calc: confidenceCalc.explanation,
     },
   };
 }
 
-export interface BailoutToBoardroomInputs {
+export interface BailoutToBoardroomInputs extends DetectorEvidenceInput {
   bailout_proxy: number;
   shareholder_loss_proxy: number;
   authority_level_proxy: number;
-  evidence_tiers: number[];
-  evidence_ids: string[];
   source_diversity_score: number;
+  reviewed_extraction_ratio: number;
 }
 
 export function detectBailoutToBoardroom(input: BailoutToBoardroomInputs): null | {
@@ -263,12 +343,17 @@ export function detectBailoutToBoardroom(input: BailoutToBoardroomInputs): null 
   const severityScore = clamp100(
     Math.round((0.45 * input.bailout_proxy + 0.3 * input.shareholder_loss_proxy + 0.25 * input.authority_level_proxy) * 100),
   );
-  const confidence = Math.min(input.source_diversity_score, 0.82);
+  const confidenceCalc = buildConfidenceCalc({
+    source_diversity_score: input.source_diversity_score,
+    evidence_quality_score: 0.82,
+    reviewed_extraction_ratio: input.reviewed_extraction_ratio,
+    review_cap: input.reviewed_extraction_ratio >= 0.67 ? 0.82 : input.reviewed_extraction_ratio > 0 ? 0.68 : 0.53,
+  });
 
   return {
     pattern_type: "BAILOUT_TO_BOARDROOM",
     severity_score: severityScore,
-    confidence,
+    confidence: confidenceCalc.confidence,
     explanation_json: {
       detector_version: "bailout_to_boardroom_v1",
       pattern_type: "BAILOUT_TO_BOARDROOM",
@@ -278,7 +363,13 @@ export function detectBailoutToBoardroom(input: BailoutToBoardroomInputs): null 
         shareholder_loss_proxy: 0.5,
         authority_level_proxy: 0.5,
       },
-      inputs: input,
+      inputs: {
+        bailout_proxy: input.bailout_proxy,
+        shareholder_loss_proxy: input.shareholder_loss_proxy,
+        authority_level_proxy: input.authority_level_proxy,
+      },
+      detector_inputs: buildDetectorEvidence(input),
+      confidence_calc: confidenceCalc.explanation,
     },
   };
 }

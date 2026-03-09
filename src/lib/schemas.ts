@@ -168,6 +168,11 @@ export const createExtractionSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
+export const reviewExtractionSchema = z.object({
+  review_status: z.enum(["pending", "reviewed", "challenged"]),
+  review_note: z.string().nullable().optional(),
+});
+
 export const recomputeSignalsSchema = z.object({
   subject_type: z.enum(["person", "event", "org"]),
   subject_id: z.string().uuid(),

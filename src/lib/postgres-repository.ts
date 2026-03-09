@@ -9,6 +9,7 @@ import type {
   DiscoveryFilters,
   EvidenceListFilters,
   EvidenceListItem,
+  ReviewExtractionInput,
   RecomputeResult,
   Repository,
 } from "./repository.js";
@@ -146,12 +147,29 @@ export class PostgresRepository implements Repository {
 
   async createExtraction(input: CreateExtractionInput): Promise<Extraction> {
     const result = await this.pool.query<Extraction>(
-      `INSERT INTO extractions (evidence_id, extractor_version, model_name, schema_version, json_output, confidence)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, created_at::text`,
+      `INSERT INTO extractions (evidence_id, extractor_version, model_name, schema_version, json_output, confidence, review_status, review_note, reviewed_at, reviewed_by)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending',NULL,NULL,NULL)
+       RETURNING id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, review_status, review_note, reviewed_at::text, reviewed_by::text, created_at::text`,
       [input.evidence_id, input.extractor_version, input.model_name ?? null, input.schema_version, JSON.stringify(input.json_output), input.confidence],
     );
-    return result.rows[0];
+    return this.normalizeExtraction(result.rows[0]);
+  }
+
+  async reviewExtraction(id: string, input: ReviewExtractionInput): Promise<Extraction> {
+    const result = await this.pool.query<Extraction>(
+      `UPDATE extractions
+       SET review_status = $2,
+           review_note = $3,
+           reviewed_at = CASE WHEN $2 = 'pending' THEN NULL ELSE now() END,
+           reviewed_by = CASE WHEN $2 = 'pending' THEN NULL ELSE $4::uuid END
+       WHERE id = $1
+       RETURNING id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, review_status, review_note, reviewed_at::text, reviewed_by::text, created_at::text`,
+      [id, input.review_status, input.review_note ?? null, input.reviewed_by],
+    );
+    if (result.rowCount === 0) {
+      throw new Error("EXTRACTION_NOT_FOUND");
+    }
+    return this.normalizeExtraction(result.rows[0]);
   }
 
   async createUserAction(input: CreateUserActionInput): Promise<UserAction> {
@@ -422,13 +440,14 @@ export class PostgresRepository implements Repository {
 
   private async rankDiscoveries(discoveries: Discovery[], userId: string) {
     const evidenceIds = Array.from(new Set(discoveries.flatMap((discovery) => discovery.evidence_ids)));
-    const [evidence, actions] = await Promise.all([
+    const [evidence, extractions, actions] = await Promise.all([
       this.loadEvidenceForIds(evidenceIds),
+      this.loadExtractionsForEvidence(evidenceIds),
       this.loadUserActions(userId),
     ]);
     const labels = await this.loadSubjectLabels(discoveries);
     return discoveries.map((discovery) => ({
-      ...rankDiscovery(discovery, evidence, actions, userId),
+      ...rankDiscovery(discovery, evidence, extractions, actions, userId),
       subject_label: labels.get(`${discovery.subject_type}:${discovery.subject_id}`) ?? discovery.subject_id,
     }));
   }
@@ -454,12 +473,30 @@ export class PostgresRepository implements Repository {
   }
 
   private async loadExtractionsForEvidence(ids: string[]): Promise<Extraction[]> {
+    if (ids.length === 0) {
+      return [];
+    }
     const result = await this.pool.query<Extraction>(
-      `SELECT id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, created_at::text
-       FROM extractions WHERE evidence_id = ANY($1::uuid[])`,
+      `SELECT id, evidence_id, extractor_version, model_name, schema_version, json_output, confidence, review_status, review_note, reviewed_at::text, reviewed_by::text, created_at::text
+       FROM extractions
+       WHERE evidence_id = ANY($1::uuid[])
+       ORDER BY
+         CASE review_status WHEN 'reviewed' THEN 0 WHEN 'challenged' THEN 1 ELSE 2 END,
+         created_at DESC,
+         id ASC`,
       [ids],
     );
-    return result.rows.map((row) => ({ ...row, confidence: asNumber(row.confidence) }));
+    return result.rows.map((row) => this.normalizeExtraction(row));
+  }
+
+  private normalizeExtraction(row: Extraction): Extraction {
+    return {
+      ...row,
+      confidence: asNumber(row.confidence),
+      review_note: row.review_note ?? null,
+      reviewed_at: row.reviewed_at ?? null,
+      reviewed_by: row.reviewed_by ?? null,
+    };
   }
 
   private async loadSignals(subjectType: SubjectType, subjectId: string): Promise<Signal[]> {

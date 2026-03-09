@@ -54,4 +54,40 @@ describe("memory repository", () => {
     expect(profile?.fragility_summary.top_patterns.length).toBeGreaterThan(0);
     expect(profile?.recent_evidence.length).toBeGreaterThan(0);
   });
+
+  it("persists extraction review metadata and returns extractions in stable order", async () => {
+    const repository = new MemoryRepository(createFixtureState());
+    const user = await repository.getDefaultUser();
+    const evidence = await repository.listEvidence(user.id);
+    const detail = await repository.getEvidenceById(evidence[0].id, user.id);
+    const target = detail?.extractions.find((extraction) => extraction.review_status === "pending") ?? detail?.extractions[0];
+    expect(target).toBeDefined();
+    if (!target) {
+      return;
+    }
+
+    await repository.reviewExtraction(target.id, {
+      review_status: "reviewed",
+      review_note: "Repository test review.",
+      reviewed_by: user.id,
+    });
+
+    const updated = await repository.getEvidenceById(evidence[0].id, user.id);
+    expect(updated?.extractions[0].id).toBe(target.id);
+    expect(updated?.extractions[0]).toMatchObject({
+      review_status: "reviewed",
+      review_note: "Repository test review.",
+      reviewed_by: user.id,
+    });
+  });
+
+  it("marks discoveries as detector hits when extraction review support is weak", async () => {
+    const repository = new MemoryRepository(createFixtureState());
+    const user = await repository.getDefaultUser();
+    const discoveries = await repository.listDiscoveries(user.id, { min_confidence: 0.5 });
+
+    expect(discoveries.some((discovery) => discovery.review_status === "detector_hit")).toBe(true);
+    expect(discoveries[0].summary).toHaveProperty("reviewed_extraction_count");
+    expect(discoveries[0].summary).toHaveProperty("extraction_review_ratio");
+  });
 });

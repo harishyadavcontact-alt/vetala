@@ -1,7 +1,7 @@
 import path from "node:path";
 import express from "express";
 import { fileURLToPath } from "node:url";
-import { createCaptureSchema, createEvidenceSchema, createExtractionSchema, createUserActionSchema, recomputeSignalsSchema } from "./lib/schemas.js";
+import { createCaptureSchema, createEvidenceSchema, createExtractionSchema, createUserActionSchema, recomputeSignalsSchema, reviewExtractionSchema } from "./lib/schemas.js";
 import { createRepository } from "./lib/data.js";
 import { asyncHandler, errorHandler, HttpError, requestLogger } from "./lib/http.js";
 import type { Repository } from "./lib/repository.js";
@@ -65,6 +65,24 @@ export function createApp(repository: Repository) {
     const extraction = await repository.createExtraction(payload);
     console.log(JSON.stringify({ type: "audit", event: "extraction_recorded", extraction_id: extraction.id, evidence_id: extraction.evidence_id }));
     res.status(201).json(extraction);
+  }));
+
+  app.post("/api/v1/extractions/:id/review", asyncHandler(async (req, res) => {
+    const userId = await resolveUserId(req);
+    const payload = reviewExtractionSchema.parse(req.body);
+    try {
+      const extraction = await repository.reviewExtraction(req.params.id, {
+        ...payload,
+        reviewed_by: userId,
+      });
+      console.log(JSON.stringify({ type: "audit", event: "extraction_reviewed", extraction_id: extraction.id, review_status: extraction.review_status }));
+      res.json(extraction);
+    } catch (error) {
+      if (error instanceof Error && error.message === "EXTRACTION_NOT_FOUND") {
+        throw new HttpError(404, "Extraction not found");
+      }
+      throw error;
+    }
   }));
 
   app.post("/api/v1/user-actions", asyncHandler(async (req, res) => {

@@ -125,6 +125,15 @@ export const extractions: Extraction[] = evidence.slice(0, 24).map((item, i) => 
   model_name: "manual-seed",
   schema_version: "extraction_v1",
   confidence: 0.7 + (i % 3) * 0.1,
+  review_status: (i % 5 === 0 ? "challenged" : i % 2 === 0 ? "reviewed" : "pending") as Extraction["review_status"],
+  review_note:
+    i % 5 === 0
+      ? "Claims need stronger sourcing before thesis promotion."
+      : i % 2 === 0
+        ? "Reviewed against cited source language."
+        : null,
+  reviewed_at: i % 2 === 0 || i % 5 === 0 ? new Date(now - i * 21600000).toISOString() : null,
+  reviewed_by: i % 2 === 0 || i % 5 === 0 ? demoUser.id : null,
   created_at: new Date(now - i * 43200000).toISOString(),
   json_output: {
     people: [{ name: people[i % people.length].full_name, aliases: [], country: people[i % people.length].primary_country, confidence: 0.88 }],
@@ -260,9 +269,13 @@ export const discoveries: Discovery[] = Array.from({ length: 30 }, (_, i) => {
     persistence_proxy: 0.45 + (i % 4) * 0.1,
     evidence_tiers: linkedEvidence.map((item) => item.trust_tier),
     evidence_ids: linkedEvidence.map((item) => item.id),
+    reviewed_evidence_ids: linkedEvidence.slice(0, 1).map((item) => item.id),
+    challenged_evidence_ids: [],
+    signal_inputs: [{ signal_type: "authority_level_high", value_numeric: 0.8 }],
     avg_extraction_confidence: 0.84,
     source_diversity_score: linkedEvidence[0].publisher === linkedEvidence[1].publisher ? 0.5 : 1,
     evidence_quality_score: linkedEvidence.some((item) => item.trust_tier <= 2) ? 0.8 : 0.5,
+    reviewed_extraction_ratio: 0.5,
   });
 
   return {

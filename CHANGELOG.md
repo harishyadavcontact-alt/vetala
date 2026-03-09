@@ -11,6 +11,7 @@
   - Capture Workspace
 - evidence ingest endpoint with `content_hash` dedupe
 - extraction creation endpoint
+- extraction review endpoint with review notes and analyst state
 - user action endpoint for review/capture/share events
 - fragility summary fields on entity profiles:
   - `skin_in_the_game_gap`
@@ -24,6 +25,13 @@
   - `best_trust_tier`
   - `reviewed_evidence_count`
   - `source_diversity_score`
+  - `extraction_count`
+  - `reviewed_extraction_count`
+  - `challenged_extraction_count`
+  - `extraction_review_ratio`
+- cautious discovery framing:
+  - `detector_hit`
+  - `reviewed_thesis`
 - capture endpoint with review gating
 - share token endpoint for captures
 - recompute endpoint for signals, scores, and discoveries
@@ -47,6 +55,10 @@
 - server now supports both memory-backed and Postgres-backed execution depending on `DATABASE_URL`
 - UI moved from no product surface to a working single-page analyst workflow
 - score and discovery payloads are now visible in the UI rather than only tested at the library layer
+- extraction rows now carry mutable review metadata in both memory and Postgres repositories
+- detector confidence now drops when extraction review coverage is weak
+- Evidence Reader now renders all extractions and puts structured fragility assessment above raw JSON
+- Entity Profile now separates reviewed theses from detector hits
 
 ## Fixed
 
@@ -54,12 +66,13 @@
 - ingest form reset no longer breaks due to stale event references
 - Playwright E2E now runs against a dedicated port instead of accidentally reusing unrelated services on `3000`
 - Postgres discovery responses normalize numeric fields before the frontend renders them
+- seed and SQL seed paths now stay aligned on extraction review metadata
 
 ## Known Gaps
 
 - real authentication is not implemented
 - detector coverage is still incomplete beyond the initial fragility-focused set
 - entity timeline data is still synthetic/partial
-- extraction review is raw JSON, not a structured analyst review surface
+- extraction review is still mutable row state, not an append-only review ledger
 - there is no live market, alerting, or monitoring integration
 - local DB validation still depends on an available `DATABASE_URL`

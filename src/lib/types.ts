@@ -71,6 +71,10 @@ export interface Extraction {
   schema_version: string;
   json_output: Record<string, unknown>;
   confidence: number;
+  review_status: "pending" | "reviewed" | "challenged";
+  review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
 }
 
@@ -141,6 +145,10 @@ export interface DiscoverySummary {
   best_trust_tier: number | null;
   reviewed_evidence_count: number;
   source_diversity_score: number;
+  extraction_count: number;
+  reviewed_extraction_count: number;
+  challenged_extraction_count: number;
+  extraction_review_ratio: number;
 }
 
 export interface FragilitySummary {
@@ -177,6 +185,7 @@ export interface RankedDiscovery extends Discovery {
   evidence: Evidence[];
   summary: DiscoverySummary;
   subject_label?: string;
+  review_status: "reviewed_thesis" | "detector_hit";
 }
 
 export interface EvidenceDetail extends Evidence {

@@ -1,4 +1,4 @@
-import { buildEvidenceHeadlines, buildDiscovery, buildFragilitySummary, buildScores, createId, rankDiscovery } from "./domain.js";
+import { buildEvidenceHeadlines, buildDiscovery, buildFragilitySummary, buildScores, createId, rankDiscovery, sortExtractions } from "./domain.js";
 import type { Capture, Discovery, EntityProfile, Event, Evidence, Extraction, LeaderboardEntry, Organization, Person, Score, SearchResults, Signal, SubjectType, User, UserAction } from "./types.js";
 import type {
   CaptureInput,
@@ -8,6 +8,7 @@ import type {
   DiscoveryFilters,
   EvidenceListFilters,
   EvidenceListItem,
+  ReviewExtractionInput,
   RecomputeResult,
   Repository,
 } from "./repository.js";
@@ -78,7 +79,7 @@ export class MemoryRepository implements Repository {
       return null;
     }
 
-    const extractions = this.state.extractions.filter((extraction) => extraction.evidence_id === id);
+    const extractions = this.state.extractions.filter((extraction) => extraction.evidence_id === id).sort(sortExtractions);
     const linkedDiscoveries = this.state.discoveries
       .filter((discovery) => discovery.evidence_ids.includes(id))
       .map((discovery) => ({
@@ -132,9 +133,26 @@ export class MemoryRepository implements Repository {
       schema_version: input.schema_version,
       json_output: input.json_output,
       confidence: input.confidence,
+      review_status: "pending",
+      review_note: null,
+      reviewed_at: null,
+      reviewed_by: null,
       created_at: new Date().toISOString(),
     };
     this.state.extractions.unshift(extraction);
+    return extraction;
+  }
+
+  async reviewExtraction(id: string, input: ReviewExtractionInput): Promise<Extraction> {
+    const extraction = this.state.extractions.find((candidate) => candidate.id === id);
+    if (!extraction) {
+      throw new Error("EXTRACTION_NOT_FOUND");
+    }
+
+    extraction.review_status = input.review_status;
+    extraction.review_note = input.review_note ?? null;
+    extraction.reviewed_at = input.review_status === "pending" ? null : new Date().toISOString();
+    extraction.reviewed_by = input.review_status === "pending" ? null : input.reviewed_by;
     return extraction;
   }
 
@@ -169,7 +187,7 @@ export class MemoryRepository implements Repository {
         return true;
       })
       .map((discovery) => ({
-        ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
         subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
       }))
       .sort((a, b) => b.severity_score - a.severity_score || b.detected_at.localeCompare(a.detected_at));
@@ -179,7 +197,7 @@ export class MemoryRepository implements Repository {
     const discovery = this.state.discoveries.find((item) => item.id === id);
     return discovery
       ? {
-          ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+          ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
           subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
         }
       : null;
@@ -239,7 +257,7 @@ export class MemoryRepository implements Repository {
     return this.state.discoveries
       .filter((discovery) => watchedDiscoveryIds.has(discovery.id))
       .map((discovery) => ({
-        ...rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId),
+        ...rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId),
         subject_label: this.subjectLabel(discovery.subject_type, discovery.subject_id),
       }))
       .sort((a, b) => b.severity_score - a.severity_score || b.confidence - a.confidence);
@@ -350,7 +368,7 @@ export class MemoryRepository implements Repository {
     return {
       signals: subjectSignals.length,
       scores: freshScores,
-      discoveries: freshDiscoveries.map((discovery) => rankDiscovery(discovery, this.state.evidence, this.state.userActions, userId)),
+      discoveries: freshDiscoveries.map((discovery) => rankDiscovery(discovery, this.state.evidence, this.state.extractions, this.state.userActions, userId)),
     };
   }
 

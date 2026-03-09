@@ -25,6 +25,21 @@ test("evidence review gates capture and allows share after capture", async ({ pa
   await expect(page.locator("#capture-status")).toContainText("Share token:");
 });
 
+test("extraction review updates evidence and discovery framing", async ({ page }) => {
+  await page.goto("/app");
+  await page.locator("#evidence-list .card").first().click();
+  await expect(page.locator("#evidence-detail .extraction-card").first()).toBeVisible();
+
+  const firstExtraction = page.locator("#evidence-detail .extraction-card").first();
+  await firstExtraction.locator("textarea").fill("Playwright review.");
+  await firstExtraction.getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(firstExtraction).toContainText("reviewed thesis");
+
+  await page.locator("#discovery-list .card").first().click();
+  await expect(page.locator("#capture-workspace")).toContainText(/reviewed thesis|detector hit/);
+  await expect(page.locator("#capture-workspace")).toContainText("review ratio");
+});
+
 test("evidence ingest updates the inbox", async ({ page }) => {
   await page.goto("/app");
   await expect(page.locator("#evidence-list .card").first()).toBeVisible();

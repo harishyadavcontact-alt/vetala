@@ -32,8 +32,8 @@ async function api(path, options = {}) {
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    const body = await response.text();
+    throw new Error(body || `Request failed: ${response.status}`);
   }
 
   return response.json();
@@ -43,23 +43,90 @@ function tag(label, variant = "") {
   return `<span class="tag ${variant}">${label}</span>`;
 }
 
+function formatDate(value) {
+  if (!value) {
+    return "n/a";
+  }
+  return new Date(value).toLocaleString();
+}
+
+function reviewVariant(status) {
+  if (status === "reviewed") {
+    return "ok";
+  }
+  if (status === "challenged") {
+    return "warn";
+  }
+  return "";
+}
+
+function reviewLabel(status) {
+  if (status === "reviewed") {
+    return "reviewed thesis";
+  }
+  if (status === "challenged") {
+    return "challenged";
+  }
+  return "pending review";
+}
+
+function discoveryStatusVariant(discovery) {
+  return discovery.review_status === "reviewed_thesis" ? "ok" : "warn";
+}
+
+function extractionCard(extraction) {
+  const fragilityAssessment = extraction.json_output?.fragility_assessment ?? { note: "No fragility assessment recorded yet." };
+  const reviewNote = extraction.review_note ? `<p class="meta">${extraction.review_note}</p>` : "";
+
+  return `
+    <article class="card extraction-card">
+      <div class="card-row">
+        <strong>${extraction.extractor_version}</strong>
+        ${tag(reviewLabel(extraction.review_status), reviewVariant(extraction.review_status))}
+      </div>
+      <p class="meta">confidence ${Number(extraction.confidence).toFixed(2)} | ${formatDate(extraction.created_at)}</p>
+      <div class="metric-grid compact">
+        <div class="metric"><span class="small">Primary subject</span><strong>${fragilityAssessment.primary_subject?.person_name ?? fragilityAssessment.primary_subject?.org_name ?? "n/a"}</strong></div>
+        <div class="metric"><span class="small">Intervention</span><strong>${fragilityAssessment.intervention_type ?? "n/a"}</strong></div>
+        <div class="metric"><span class="small">Convexity</span><strong>${fragilityAssessment.convexity_profile ?? "n/a"}</strong></div>
+        <div class="metric"><span class="small">Mechanisms</span><strong>${(fragilityAssessment.fragility_mechanisms ?? []).slice(0, 2).join(", ") || "n/a"}</strong></div>
+      </div>
+      <div>
+        <p class="eyebrow">Reviewed fragility assessment</p>
+        <pre>${JSON.stringify(fragilityAssessment, null, 2)}</pre>
+      </div>
+      <div class="inline-actions">
+        <button type="button" data-review-extraction="${extraction.id}" data-status="reviewed">Mark reviewed</button>
+        <button type="button" data-review-extraction="${extraction.id}" data-status="challenged" class="secondary">Challenge</button>
+        <button type="button" data-review-extraction="${extraction.id}" data-status="pending" class="secondary">Reset</button>
+      </div>
+      <textarea data-review-note="${extraction.id}" placeholder="Review note">${extraction.review_note ?? ""}</textarea>
+      ${reviewNote}
+      <div>
+        <p class="eyebrow">Full extraction</p>
+        <pre>${JSON.stringify(extraction.json_output, null, 2)}</pre>
+      </div>
+    </article>
+  `;
+}
+
 function renderEvidenceList() {
   nodes.evidenceList.innerHTML = state.evidence
     .map(
       (item) => `
-      <article class="card ${item.id === state.selectedEvidenceId ? "active" : ""}" data-evidence-id="${item.id}">
-        <div class="card-row">
-          <strong>${item.title}</strong>
-          ${tag(`T${item.trust_tier}`, item.trust_tier <= 2 ? "ok" : "warn")}
-        </div>
-        <p class="meta">${item.publisher}</p>
-        <div class="tag-row">
-          ${tag(item.reviewed ? "reviewed" : "unreviewed", item.reviewed ? "ok" : "warn")}
-          ${tag(`${item.extraction_count} extractions`)}
-          ${tag(`${item.claim_count} claims`)}
-          ${item.duplicate_count > 0 ? tag(`${item.duplicate_count} duplicates`, "warn") : ""}
-        </div>
-      </article>`,
+        <article class="card ${item.id === state.selectedEvidenceId ? "active" : ""}" data-evidence-id="${item.id}">
+          <div class="card-row">
+            <strong>${item.title}</strong>
+            ${tag(`T${item.trust_tier}`, item.trust_tier <= 2 ? "ok" : "warn")}
+          </div>
+          <p class="meta">${item.publisher}</p>
+          <div class="tag-row">
+            ${tag(item.reviewed ? "evidence viewed" : "evidence unseen", item.reviewed ? "ok" : "warn")}
+            ${tag(`${item.extraction_count} extractions`)}
+            ${tag(`${item.claim_count} claims`)}
+            ${item.duplicate_count > 0 ? tag(`${item.duplicate_count} duplicates`, "warn") : ""}
+          </div>
+        </article>`,
     )
     .join("");
 }
@@ -68,19 +135,19 @@ function renderDiscoveryList() {
   nodes.discoveryList.innerHTML = state.discoveries
     .map(
       (item) => `
-      <article class="card ${item.id === state.selectedDiscoveryId ? "active" : ""}" data-discovery-id="${item.id}">
-        <div class="card-row">
-          <strong>${item.pattern_label}</strong>
-          ${tag(`sev ${item.severity_score}`)}
-        </div>
-        <p class="meta">${item.subject_label ?? item.subject_id.slice(0, 8)} | ${item.pattern_type}</p>
-        <div class="tag-row">
-          ${tag(`conf ${item.confidence.toFixed(2)}`)}
-          ${tag(`${item.summary.evidence_count} evidence`)}
-          ${tag(`best tier ${item.summary.best_trust_tier ?? "n/a"}`)}
-          ${tag(`${item.summary.reviewed_evidence_count} reviewed`, item.summary.reviewed_evidence_count > 0 ? "ok" : "warn")}
-        </div>
-      </article>`,
+        <article class="card ${item.id === state.selectedDiscoveryId ? "active" : ""}" data-discovery-id="${item.id}">
+          <div class="card-row">
+            <strong>${item.pattern_label}</strong>
+            ${tag(`sev ${item.severity_score}`)}
+          </div>
+          <p class="meta">${item.subject_label ?? item.subject_id.slice(0, 8)} | ${item.pattern_type}</p>
+          <div class="tag-row">
+            ${tag(`conf ${item.confidence.toFixed(2)}`)}
+            ${tag(item.review_status === "reviewed_thesis" ? "reviewed thesis" : "detector hit", discoveryStatusVariant(item))}
+            ${tag(`${item.summary.reviewed_extraction_count}/${item.summary.extraction_count} reviewed extractions`, item.summary.reviewed_extraction_count > 0 ? "ok" : "warn")}
+            ${tag(`${item.summary.reviewed_evidence_count} viewed evidence`, item.summary.reviewed_evidence_count > 0 ? "ok" : "warn")}
+          </div>
+        </article>`,
     )
     .join("");
 }
@@ -91,13 +158,17 @@ function renderWatchlist() {
     : state.watchlist
         .map(
           (item) => `
-          <article class="card" data-discovery-id="${item.id}">
-            <div class="card-row">
-              <strong>${item.pattern_label}</strong>
-              ${tag(`sev ${item.severity_score}`)}
-            </div>
-            <p class="meta">${item.subject_label ?? item.subject_id}</p>
-          </article>`,
+            <article class="card" data-discovery-id="${item.id}">
+              <div class="card-row">
+                <strong>${item.pattern_label}</strong>
+                ${tag(`sev ${item.severity_score}`)}
+              </div>
+              <p class="meta">${item.subject_label ?? item.subject_id}</p>
+              <div class="tag-row">
+                ${tag(item.review_status === "reviewed_thesis" ? "reviewed thesis" : "detector hit", discoveryStatusVariant(item))}
+                ${tag(`${item.summary.reviewed_extraction_count} reviewed extractions`, item.summary.reviewed_extraction_count > 0 ? "ok" : "warn")}
+              </div>
+            </article>`,
         )
         .join("");
 }
@@ -126,8 +197,10 @@ async function loadEvidenceDetail(id) {
   const item = await api(`/api/v1/evidence/${id}`);
   state.selectedEvidenceId = id;
   renderEvidenceList();
-  const extraction = item.extractions[0];
-  const fragilityAssessment = extraction?.json_output?.fragility_assessment ?? { note: "No fragility assessment recorded yet." };
+
+  const linkedDiscoveries = item.linked_discoveries
+    .map((discovery) => `<li>${discovery.pattern_label} | conf ${Number(discovery.confidence).toFixed(2)} | sev ${discovery.severity_score}</li>`)
+    .join("");
 
   nodes.evidenceDetail.innerHTML = `
     <div>
@@ -139,18 +212,17 @@ async function loadEvidenceDetail(id) {
       <div class="metric"><span class="small">Trust tier</span><strong>${item.trust_tier}</strong></div>
       <div class="metric"><span class="small">Duplicates</span><strong>${item.duplicate_count}</strong></div>
       <div class="metric"><span class="small">Extractions</span><strong>${item.extraction_count}</strong></div>
-      <div class="metric"><span class="small">Reviewed</span><strong>${item.reviewed ? "Yes" : "No"}</strong></div>
+      <div class="metric"><span class="small">Evidence viewed</span><strong>${item.reviewed ? "Yes" : "No"}</strong></div>
     </div>
     <div class="inline-actions">
-      <button id="mark-reviewed">Mark reviewed</button>
+      <button id="mark-reviewed">Mark evidence viewed</button>
     </div>
     <div>
-      <p class="eyebrow">Fragility assessment</p>
-      <pre>${JSON.stringify(fragilityAssessment, null, 2)}</pre>
+      <p class="eyebrow">Linked detector hits</p>
+      <ul>${linkedDiscoveries || "<li>No linked discoveries yet.</li>"}</ul>
     </div>
-    <div>
-      <p class="eyebrow">Full extraction</p>
-      <pre>${JSON.stringify(extraction?.json_output ?? { note: "No extraction recorded yet." }, null, 2)}</pre>
+    <div class="stack">
+      ${(item.extractions ?? []).map((extraction) => extractionCard(extraction)).join("") || '<p class="empty">No extractions recorded yet.</p>'}
     </div>
   `;
 
@@ -170,19 +242,23 @@ async function loadEvidenceDetail(id) {
 
 async function loadEntityProfile(subjectType, subjectId) {
   const profile = await api(`/api/v1/${subjectType === "person" ? "people" : subjectType === "org" ? "organizations" : "events"}/${subjectId}`);
-  const heading =
-    profile.person?.full_name ||
-    profile.organization?.name ||
-    profile.event?.title ||
-    "Entity";
+  const heading = profile.person?.full_name || profile.organization?.name || profile.event?.title || "Entity";
   const topPatterns = profile.fragility_summary.top_patterns
     .map((pattern) => tag(`${pattern.pattern_label} (${pattern.confidence.toFixed(2)})`, "warn"))
     .join("");
-  const recentEvidence = profile.recent_evidence
-    .map((item) => `<li>${item.title} | ${item.publisher} | tier ${item.trust_tier}</li>`)
+  const recentEvidence = profile.recent_evidence.map((item) => `<li>${item.title} | ${item.publisher} | tier ${item.trust_tier}</li>`).join("");
+  const timeline = profile.timeline.map((item) => `<li>${item.start_date ?? "undated"} | ${item.title}</li>`).join("");
+  const reviewedDiscoveries = profile.discoveries
+    .filter((discovery) => discovery.summary.reviewed_extraction_count > 0)
+    .slice(0, 3)
+    .map(
+      (discovery) =>
+        `<li>${discovery.pattern_label} | ${discovery.summary.reviewed_extraction_count}/${discovery.summary.extraction_count} reviewed extractions | conf ${discovery.confidence.toFixed(2)}</li>`,
+    )
     .join("");
-  const timeline = profile.timeline
-    .map((item) => `<li>${item.start_date ?? "undated"} | ${item.title}</li>`)
+  const detectorHits = profile.discoveries
+    .slice(0, 4)
+    .map((discovery) => `<li>${discovery.pattern_label} | ${discovery.review_status === "reviewed_thesis" ? "reviewed thesis" : "detector hit"}</li>`)
     .join("");
 
   nodes.entityProfile.innerHTML = `
@@ -198,9 +274,17 @@ async function loadEntityProfile(subjectType, subjectId) {
       <div class="metric"><span class="small">Fragility score</span><strong>${profile.fragility_summary.fragility_score}</strong></div>
     </div>
     <div>
-      <p class="eyebrow">Current thesis</p>
+      <p class="eyebrow">Why this subject is fragile</p>
       <p class="meta">${profile.fragility_summary.thesis}</p>
       <div class="tag-row">${topPatterns || tag("No detector has fired yet")}</div>
+    </div>
+    <div>
+      <p class="eyebrow">Reviewed theses</p>
+      <ul>${reviewedDiscoveries || "<li>No reviewed extraction support yet.</li>"}</ul>
+    </div>
+    <div>
+      <p class="eyebrow">Detector hits</p>
+      <ul>${detectorHits || "<li>No detector hits yet.</li>"}</ul>
     </div>
     <div>
       <p class="eyebrow">Watch evidence</p>
@@ -209,10 +293,6 @@ async function loadEntityProfile(subjectType, subjectId) {
     <div>
       <p class="eyebrow">Intervention timeline</p>
       <ul>${timeline || "<li>No tracked timeline yet.</li>"}</ul>
-    </div>
-    <div>
-      <p class="eyebrow">Scores and explanations</p>
-      <pre>${JSON.stringify(profile.scores, null, 2)}</pre>
     </div>
   `;
 }
@@ -230,9 +310,14 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
     </div>
     <div class="metric-grid">
       <div class="metric"><span class="small">Evidence count</span><strong>${discovery.summary.evidence_count}</strong></div>
-      <div class="metric"><span class="small">Best trust tier</span><strong>${discovery.summary.best_trust_tier ?? "n/a"}</strong></div>
-      <div class="metric"><span class="small">Reviewed evidence</span><strong>${discovery.summary.reviewed_evidence_count}</strong></div>
+      <div class="metric"><span class="small">Viewed evidence</span><strong>${discovery.summary.reviewed_evidence_count}</strong></div>
+      <div class="metric"><span class="small">Reviewed extractions</span><strong>${discovery.summary.reviewed_extraction_count}</strong></div>
       <div class="metric"><span class="small">Severity</span><strong>${discovery.severity_score}</strong></div>
+    </div>
+    <div class="tag-row">
+      ${tag(discovery.review_status === "reviewed_thesis" ? "reviewed thesis" : "detector hit", discoveryStatusVariant(discovery))}
+      ${tag(`review ratio ${discovery.summary.extraction_review_ratio.toFixed(2)}`, discovery.summary.reviewed_extraction_count > 0 ? "ok" : "warn")}
+      ${discovery.summary.challenged_extraction_count > 0 ? tag(`${discovery.summary.challenged_extraction_count} challenged`, "warn") : ""}
     </div>
     <div>
       <p class="eyebrow">Why this fired</p>
@@ -249,7 +334,7 @@ async function loadCaptureWorkspace(id, statusMessage = "") {
     </form>
   `;
 
-  loadEntityProfile(discovery.subject_type, discovery.subject_id);
+  await loadEntityProfile(discovery.subject_type, discovery.subject_id);
 
   document.querySelector("#capture-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -338,10 +423,33 @@ nodes.watchlist.addEventListener("click", async (event) => {
   await loadCaptureWorkspace(card.dataset.discoveryId);
 });
 
+nodes.evidenceDetail.addEventListener("click", async (event) => {
+  const target = event.target.closest("[data-review-extraction]");
+  if (!target) {
+    return;
+  }
+  const extractionId = target.dataset.reviewExtraction;
+  const reviewStatus = target.dataset.status;
+  const noteNode = nodes.evidenceDetail.querySelector(`[data-review-note="${extractionId}"]`);
+  await api(`/api/v1/extractions/${extractionId}/review`, {
+    method: "POST",
+    body: JSON.stringify({
+      review_status: reviewStatus,
+      review_note: noteNode?.value || null,
+    }),
+  });
+  await loadAll();
+  await loadEvidenceDetail(state.selectedEvidenceId);
+  if (state.selectedDiscoveryId) {
+    await loadCaptureWorkspace(state.selectedDiscoveryId);
+  }
+});
+
 nodes.ingestForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formElement = event.currentTarget;
   const form = new FormData(formElement);
+  const now = Date.now();
   const payload = {
     title: String(form.get("title")),
     publisher: String(form.get("publisher")),
@@ -350,8 +458,8 @@ nodes.ingestForm.addEventListener("submit", async (event) => {
     trust_tier: Number(form.get("trust_tier")),
     accessed_at: new Date().toISOString(),
     content_hash: btoa(String(form.get("url"))).replace(/=/g, ""),
-    raw_storage_path: `/raw/${Date.now()}.html`,
-    extracted_text_path: `/extracted/${Date.now()}.txt`,
+    raw_storage_path: `/raw/${now}.html`,
+    extracted_text_path: `/extracted/${now}.txt`,
     license_notes: null,
   };
 
