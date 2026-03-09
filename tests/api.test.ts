@@ -86,5 +86,23 @@ describe("workflow api", () => {
     expect(response.body.scores.length).toBe(5);
     expect(response.body).toHaveProperty("signals");
     expect(Array.isArray(response.body.discoveries)).toBe(true);
+    expect(response.body.discoveries.length).toBeGreaterThan(1);
+  });
+
+  it("returns fragility summaries on entity profiles", async () => {
+    const people = await request(app).get("/api/v1/search?q=Person 1&type=people");
+    const subjectId = people.body.people[0].id;
+
+    const response = await request(app).get(`/api/v1/people/${subjectId}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.fragility_summary).toMatchObject({
+      skin_in_the_game_gap: expect.any(Number),
+      externalized_loss_risk: expect.any(Number),
+      iatrogenic_risk: expect.any(Number),
+      fragility_score: expect.any(Number),
+      thesis: expect.any(String),
+    });
+    expect(Array.isArray(response.body.recent_evidence)).toBe(true);
   });
 });

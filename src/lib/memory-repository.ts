@@ -227,17 +227,16 @@ export class MemoryRepository implements Repository {
       if (!person) {
         return null;
       }
+      const scores = this.state.scores.filter((score) => score.subject_type === "person" && score.subject_id === id);
+      const discoveries = await this.listDiscoveries(userId, { subject_type: "person", subject_id: id });
       return {
         subject_type: "person",
         person,
-        scores: this.state.scores.filter((score) => score.subject_type === "person" && score.subject_id === id),
-        discoveries: await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
+        scores,
+        discoveries,
         timeline: this.state.events.filter((_, index) => index % this.state.people.length === this.state.people.findIndex((candidate) => candidate.id === id)),
-        fragility_summary: buildFragilitySummary(
-          this.state.scores.filter((score) => score.subject_type === "person" && score.subject_id === id),
-          await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
-        ),
-        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "person", subject_id: id })),
+        fragility_summary: buildFragilitySummary(scores, discoveries),
+        recent_evidence: buildEvidenceHeadlines(discoveries),
       };
     }
 
@@ -246,17 +245,16 @@ export class MemoryRepository implements Repository {
       if (!organization) {
         return null;
       }
+      const scores = this.state.scores.filter((score) => score.subject_type === "org" && score.subject_id === id);
+      const discoveries = await this.listDiscoveries(userId, { subject_type: "org", subject_id: id });
       return {
         subject_type: "org",
         organization,
-        scores: this.state.scores.filter((score) => score.subject_type === "org" && score.subject_id === id),
-        discoveries: await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
+        scores,
+        discoveries,
         timeline: [],
-        fragility_summary: buildFragilitySummary(
-          this.state.scores.filter((score) => score.subject_type === "org" && score.subject_id === id),
-          await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
-        ),
-        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "org", subject_id: id })),
+        fragility_summary: buildFragilitySummary(scores, discoveries),
+        recent_evidence: buildEvidenceHeadlines(discoveries),
       };
     }
 
@@ -264,18 +262,17 @@ export class MemoryRepository implements Repository {
     if (!event) {
       return null;
     }
+    const scores = this.state.scores.filter((score) => score.subject_type === "event" && score.subject_id === id);
+    const discoveries = await this.listDiscoveries(userId, { subject_type: "event", subject_id: id });
 
     return {
       subject_type: "event",
       event,
-      scores: this.state.scores.filter((score) => score.subject_type === "event" && score.subject_id === id),
-      discoveries: await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
+      scores,
+      discoveries,
       timeline: [event],
-      fragility_summary: buildFragilitySummary(
-        this.state.scores.filter((score) => score.subject_type === "event" && score.subject_id === id),
-        await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
-      ),
-      recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "event", subject_id: id })),
+      fragility_summary: buildFragilitySummary(scores, discoveries),
+      recent_evidence: buildEvidenceHeadlines(discoveries),
     };
   }
 

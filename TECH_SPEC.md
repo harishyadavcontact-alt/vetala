@@ -144,6 +144,11 @@ Derived summary fields on ranked responses:
 - `reviewed_evidence_count`
 - `source_diversity_score`
 
+Entity profile-only derived fields:
+
+- `fragility_summary`
+- `recent_evidence`
+
 ### Capture
 
 Fields:
@@ -280,9 +285,12 @@ Mechanics:
   - `0.15 * II`
   - optional persistence bonus capped at `10`
 
-Implemented detector:
+Implemented detectors:
 
 - `detectBobRubinTrade`
+- `detectRevolvingDoor`
+- `detectIatrogenicIntervention`
+- `detectBailoutToBoardroom`
 
 Thresholds:
 
@@ -300,8 +308,8 @@ Confidence is the minimum of:
 
 Reality constraint:
 
-- only `BOB_RUBIN_TRADE` has implemented detection logic
-- other pattern names are type-level placeholders and seed labels
+- detector coverage is still partial
+- `COMPLEXITY_ARBITRAGE` and `POSTDICTING_STIGLITZ` remain type-level placeholders
 
 ## Rendering Logic
 

@@ -53,7 +53,7 @@ Primary surfaces:
   - shows source metadata and the first extraction payload
   - exposes `Mark reviewed`
 - Entity Profile
-  - shows subject identity, current scores, and one explanation payload
+  - shows subject identity, fragility summary metrics, top detector patterns, recent evidence, and full score payloads
 - Capture Workspace
   - shows discovery details and explanation JSON
   - allows capture and share after selection
@@ -128,17 +128,18 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 - A successful capture returns a persisted capture record with `verification_level: viewed_evidence`.
 - A user can request a share token for a capture.
 - Entity profile responses include subject info and score payloads.
+- Entity profiles expose `fragility_summary` and `recent_evidence`.
 - `npm run validate` passes for the non-DB path.
 
 ## Known Limitations
 
 - There is no real auth flow. User resolution is `x-user-id` or first user in the repository.
 - The frontend is plain JavaScript with in-memory page state. There is no route-level state, undo, or offline behavior.
-- The UI shows only the first extraction payload and only the first score explanation block.
+- The UI shows the first extraction's fragility assessment and dumps the full score array as JSON.
 - Search is basic text matching, not full investigative search.
 - There is no background processing. Recompute runs inline in the request cycle.
-- The only detector with implemented logic is `BOB_RUBIN_TRADE`.
-- Other pattern names exist in types and seed data, but they are not implemented detectors.
+- Real detector logic now exists for `BOB_RUBIN_TRADE`, `REVOLVING_DOOR`, `IATROGENIC_INTERVENTION`, and `BAILOUT_TO_BOARDROOM`.
+- `COMPLEXITY_ARBITRAGE` and `POSTDICTING_STIGLITZ` still exist only as type/seed placeholders.
 - In-memory mode is useful for dev and tests, not as production storage.
 - There is no integration with any larger platform. Vetala stands alone in this repo.
 
@@ -167,7 +168,7 @@ Only `suggested` and `captured` are meaningfully exercised in the current UI and
 
 - seed data stands in for real investigative content
 - entity profiles are partial and rely on seeded scores and synthetic timelines
-- only one detector has real logic
+- multiple detectors exist, but the pattern library is still small
 - extraction review is raw JSON, not a curated analyst UI
 - there is no live market, alerting, or monitoring integration yet
 

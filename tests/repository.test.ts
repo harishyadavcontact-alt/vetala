@@ -43,4 +43,15 @@ describe("memory repository", () => {
     expect(discoveries[0].evidence.length).toBeGreaterThan(0);
     expect(discoveries[0].summary.evidence_count).toBe(discoveries[0].evidence.length);
   });
+
+  it("builds fragility summaries on entity profiles", async () => {
+    const repository = new MemoryRepository(createFixtureState());
+    const user = await repository.getDefaultUser();
+    const results = await repository.search("Person 1", "people");
+    const profile = await repository.getEntityProfile("person", results.people[0].id, user.id);
+
+    expect(profile?.fragility_summary.fragility_score).toBeGreaterThanOrEqual(0);
+    expect(profile?.fragility_summary.top_patterns.length).toBeGreaterThan(0);
+    expect(profile?.recent_evidence.length).toBeGreaterThan(0);
+  });
 });

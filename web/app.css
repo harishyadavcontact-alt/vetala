@@ -84,7 +84,8 @@ textarea {
 h1,
 h2,
 h3,
-p {
+p,
+ul {
   margin-top: 0;
 }
 
@@ -242,6 +243,15 @@ pre {
   padding: 12px;
   margin: 0;
   font-size: 13px;
+}
+
+ul {
+  margin-bottom: 0;
+  padding-left: 18px;
+}
+
+li + li {
+  margin-top: 6px;
 }
 
 @media (max-width: 1100px) {

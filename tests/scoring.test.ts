@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeFs, computeScoreFromSignals, detectBobRubinTrade } from "../src/lib/scoring.js";
+import { computeFs, computeScoreFromSignals, detectBailoutToBoardroom, detectBobRubinTrade, detectIatrogenicIntervention, detectRevolvingDoor } from "../src/lib/scoring.js";
 
 describe("scoring", () => {
   it("computes SITG score deterministically", () => {
@@ -31,5 +31,47 @@ describe("scoring", () => {
     expect(result?.pattern_type).toBe("BOB_RUBIN_TRADE");
     expect(result?.severity_score).toBeGreaterThan(0);
     expect(result?.confidence).toBe(0.7);
+  });
+
+  it("detects revolving door patterns", () => {
+    const result = detectRevolvingDoor({
+      authority_level_proxy: 0.7,
+      role_switch_proxy: 0.8,
+      regulatory_overlap_proxy: 0.7,
+      evidence_tiers: [1, 3],
+      evidence_ids: ["a", "b"],
+      source_diversity_score: 0.8,
+    });
+
+    expect(result?.pattern_type).toBe("REVOLVING_DOOR");
+    expect(result?.confidence).toBeGreaterThan(0);
+  });
+
+  it("detects iatrogenic intervention patterns", () => {
+    const result = detectIatrogenicIntervention({
+      intervention_backfire_proxy: 0.8,
+      repeated_failure_proxy: 0.7,
+      public_harm_proxy: 0.75,
+      evidence_tiers: [2, 4],
+      evidence_ids: ["a", "b"],
+      avg_extraction_confidence: 0.81,
+    });
+
+    expect(result?.pattern_type).toBe("IATROGENIC_INTERVENTION");
+    expect(result?.severity_score).toBeGreaterThan(0);
+  });
+
+  it("detects bailout to boardroom patterns", () => {
+    const result = detectBailoutToBoardroom({
+      bailout_proxy: 0.85,
+      shareholder_loss_proxy: 0.65,
+      authority_level_proxy: 0.7,
+      evidence_tiers: [1, 2],
+      evidence_ids: ["a", "b"],
+      source_diversity_score: 0.76,
+    });
+
+    expect(result?.pattern_type).toBe("BAILOUT_TO_BOARDROOM");
+    expect(result?.confidence).toBeGreaterThan(0);
   });
 });

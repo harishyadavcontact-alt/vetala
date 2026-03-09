@@ -273,17 +273,16 @@ export class PostgresRepository implements Repository {
       if (person.rowCount === 0) {
         return null;
       }
+      const scores = await this.loadScores(subjectType, id);
+      const discoveries = await this.listDiscoveries(userId, { subject_type: "person", subject_id: id });
       return {
         subject_type: "person",
         person: person.rows[0],
-        scores: await this.loadScores(subjectType, id),
-        discoveries: await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
+        scores,
+        discoveries,
         timeline: (await this.pool.query<Event>("SELECT id, title, category, summary, start_date::text, end_date::text, jurisdiction FROM events ORDER BY start_date DESC LIMIT 5")).rows,
-        fragility_summary: buildFragilitySummary(
-          await this.loadScores(subjectType, id),
-          await this.listDiscoveries(userId, { subject_type: "person", subject_id: id }),
-        ),
-        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "person", subject_id: id })),
+        fragility_summary: buildFragilitySummary(scores, discoveries),
+        recent_evidence: buildEvidenceHeadlines(discoveries),
       };
     }
 
@@ -292,17 +291,16 @@ export class PostgresRepository implements Repository {
       if (organization.rowCount === 0) {
         return null;
       }
+      const scores = await this.loadScores(subjectType, id);
+      const discoveries = await this.listDiscoveries(userId, { subject_type: "org", subject_id: id });
       return {
         subject_type: "org",
         organization: organization.rows[0],
-        scores: await this.loadScores(subjectType, id),
-        discoveries: await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
+        scores,
+        discoveries,
         timeline: [],
-        fragility_summary: buildFragilitySummary(
-          await this.loadScores(subjectType, id),
-          await this.listDiscoveries(userId, { subject_type: "org", subject_id: id }),
-        ),
-        recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "org", subject_id: id })),
+        fragility_summary: buildFragilitySummary(scores, discoveries),
+        recent_evidence: buildEvidenceHeadlines(discoveries),
       };
     }
 
@@ -310,17 +308,16 @@ export class PostgresRepository implements Repository {
     if (event.rowCount === 0) {
       return null;
     }
+    const scores = await this.loadScores(subjectType, id);
+    const discoveries = await this.listDiscoveries(userId, { subject_type: "event", subject_id: id });
     return {
       subject_type: "event",
       event: event.rows[0],
-      scores: await this.loadScores(subjectType, id),
-      discoveries: await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
+      scores,
+      discoveries,
       timeline: event.rows,
-      fragility_summary: buildFragilitySummary(
-        await this.loadScores(subjectType, id),
-        await this.listDiscoveries(userId, { subject_type: "event", subject_id: id }),
-      ),
-      recent_evidence: buildEvidenceHeadlines(await this.listDiscoveries(userId, { subject_type: "event", subject_id: id })),
+      fragility_summary: buildFragilitySummary(scores, discoveries),
+      recent_evidence: buildEvidenceHeadlines(discoveries),
     };
   }
 
