@@ -2,6 +2,23 @@
 
 Vetal is a fragility-tracking research app. It helps analysts identify fragilistas: people and institutions that internalize upside, externalize downside, and create hidden exposure to ruin.
 
+## Reading Order
+
+1. `vetala_genesis.md`
+2. `README.md`
+3. `docs/root-docs/`
+
+`vetala_genesis.md` is the local source of truth for repo doctrine and agent starting context.
+Use this `README.md` as the root implementation and navigation map.
+
+## Development Model
+
+This repo follows a genesis-first, bottom-up development model:
+
+- global doctrine lives above the repo
+- `vetala_genesis.md` governs the repo locally
+- feature work should be clarified as close to execution as possible
+
 ## What is implemented
 
 - Repository-driven API with a Postgres adapter and an in-memory adapter for tests and no-DB development.
@@ -78,6 +95,15 @@ npm run dev
 ```bash
 npm run validate
 ```
+
+## Product docs
+
+- `docs/root-docs/PRODUCT_DOC.md`
+- `docs/root-docs/TECH_SPEC.md`
+- `docs/root-docs/CHANGELOG.md`
+- `docs/root-docs/ROADMAP.md`
+- `docs/root-docs/EVIDENCE_TO_CAPTURE_SPEC.md`
+- `docs/root-docs/NEXT_4_HOURS.md`
 
 This runs the local quality ladder:
 
